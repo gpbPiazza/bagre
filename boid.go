@@ -8,25 +8,26 @@ import (
 )
 
 const (
-	boidsCount     = 600
-	boidViewRadius = 13
-	adjustRate     = 0.15
+	jellysCount     = 600
+	jellyViewRadius = 13
+	adjustRate      = 0.15
 )
 
 var (
-	flockMapPositions = [screenWidth + 1][screenHeight + 1]int{}
-	flock             = make(map[int]*Boid, 0)
-	rwLocker          = sync.RWMutex{}
+	smackMapPositions = [screenWidth + 1][screenHeight + 1]int{}
+	// smack is the collective noun for jellyFish
+	smack    = make(map[int]*JellyFish, 0)
+	rwLocker = sync.RWMutex{}
 )
 
-type Boid struct {
+type JellyFish struct {
 	position Vector2D
 	velocity Vector2D
 	id       int
 }
 
-func NewBoid(id int) *Boid {
-	b := &Boid{
+func NewJellyFish(id int) *JellyFish {
+	b := &JellyFish{
 		position: Vector2D{x: rand.Float64() * screenWidth, y: rand.Float64() * screenHeight},
 		velocity: Vector2D{x: (rand.Float64() * 2) - 1.0, y: (rand.Float64() * 2) - 1.0},
 		id:       id,
@@ -37,35 +38,35 @@ func NewBoid(id int) *Boid {
 	return b
 }
 
-func (b *Boid) fly() {
+func (b *JellyFish) fly() {
 	for {
 		b.move()
 		time.Sleep(5 * time.Millisecond)
 	}
 }
 
-func (b *Boid) calcAcceleration() Vector2D {
-	upperView := b.position.AddVal(boidViewRadius)
-	lowerView := b.position.AddVal(-boidViewRadius)
-	// all variables with prefix all here mean all elements inside of viewBox, inside of Boid View Radius
-	allBoidsVelocity := Vector2D{x: 0, y: 0}
-	allBoidsPosition := Vector2D{x: 0, y: 0}
-	allBoidsSeparation := Vector2D{x: 0, y: 0}
-	boidsCount := 0.0
+func (b *JellyFish) calcAcceleration() Vector2D {
+	upperView := b.position.AddVal(jellyViewRadius)
+	lowerView := b.position.AddVal(-jellyViewRadius)
+	// all variables with prefix all here mean all elements inside of viewBox, inside of JellyFish View Radius
+	allJellyFishsVelocity := Vector2D{x: 0, y: 0}
+	allJellyFishsPosition := Vector2D{x: 0, y: 0}
+	allJellyFishsSeparation := Vector2D{x: 0, y: 0}
+	jellysCount := 0.0
 
 	rwLocker.RLock()
 	for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
 		for j := math.Max(lowerView.y, 0); j <= math.Min(upperView.y, screenHeight); j++ {
-			otherBoidId := flockMapPositions[int(i)][int(j)]
-			if otherBoidId != -1 && b.id != otherBoidId {
-				otherBoid := flock[otherBoidId]
-				dist := otherBoid.position.Distance(b.position)
-				if dist < boidViewRadius {
-					boidsCount++
-					allBoidsVelocity = allBoidsVelocity.Add(otherBoid.velocity)
-					allBoidsPosition = allBoidsPosition.Add(otherBoid.position)
-					separation := b.position.Subtract(otherBoid.position).DivisionVal(dist)
-					allBoidsSeparation = allBoidsSeparation.Add(separation)
+			otherJellyFishId := smackMapPositions[int(i)][int(j)]
+			if otherJellyFishId != -1 && b.id != otherJellyFishId {
+				otherJellyFish := smack[otherJellyFishId]
+				dist := otherJellyFish.position.Distance(b.position)
+				if dist < jellyViewRadius {
+					jellysCount++
+					allJellyFishsVelocity = allJellyFishsVelocity.Add(otherJellyFish.velocity)
+					allJellyFishsPosition = allJellyFishsPosition.Add(otherJellyFish.position)
+					separation := b.position.Subtract(otherJellyFish.position).DivisionVal(dist)
+					allJellyFishsSeparation = allJellyFishsSeparation.Add(separation)
 				}
 			}
 		}
@@ -76,12 +77,12 @@ func (b *Boid) calcAcceleration() Vector2D {
 	borderBouncey := b.borderBounce(b.position.y, screenHeight)
 	accel := Vector2D{x: borderBounceX, y: borderBouncey}
 
-	if boidsCount > 0 {
-		avgVelocity := allBoidsVelocity.DivisionVal(boidsCount)
-		avgPosition := allBoidsPosition.DivisionVal(boidsCount)
+	if jellysCount > 0 {
+		avgVelocity := allJellyFishsVelocity.DivisionVal(jellysCount)
+		avgPosition := allJellyFishsPosition.DivisionVal(jellysCount)
 		accelAligment := avgVelocity.Subtract(b.velocity).MultiplyVal(adjustRate)
 		accelCohesion := avgPosition.Subtract(b.position).MultiplyVal(adjustRate)
-		accelSepartion := allBoidsSeparation.MultiplyVal(adjustRate)
+		accelSepartion := allJellyFishsSeparation.MultiplyVal(adjustRate)
 		accel = accel.Add(accelAligment).Add(accelCohesion).Add(accelSepartion)
 	}
 
@@ -89,56 +90,56 @@ func (b *Boid) calcAcceleration() Vector2D {
 }
 
 // Quanto mais próximo da borda mais rápido será o bounce
-func (b *Boid) borderBounce(pos, border float64) float64 {
+func (b *JellyFish) borderBounce(pos, border float64) float64 {
 
 	// Está próximo da bater na borda, passou do limite de vistualização
 	// ou seja o passarinho viu a parede e irá mudar de direção
-	if pos < boidViewRadius {
+	if pos < jellyViewRadius {
 		return 1 / pos
 	}
 	// Is the same thing but in the other side of the screenView
-	// o primeiro If é para o boid que está próximo da parede em que X é muito pequeno
+	// o primeiro If é para o jelly que está próximo da parede em que X é muito pequeno
 	// Aqui o x é grande, o mesmo para Y.
-	if pos > border-boidViewRadius {
+	if pos > border-jellyViewRadius {
 		return 1 / (pos - border)
 	}
 
 	return 0
 }
 
-func (b *Boid) move() {
+func (b *JellyFish) move() {
 	accel := b.calcAcceleration()
 
 	rwLocker.Lock()
-	// the limit method its to ensure the boid will not run faster than 1 px per cycle
+	// the limit method its to ensure the jelly will not run faster than 1 px per cycle
 	b.velocity = b.velocity.Add(accel).LimitVal(-1, 1)
 	//set the current position to -1, empty space
-	flockMapPositions[int(b.position.x)][int(b.position.y)] = -1
+	smackMapPositions[int(b.position.x)][int(b.position.y)] = -1
 	// move
 	b.position = b.position.Add(b.velocity)
 	// fill the new position into the map
-	flockMapPositions[int(b.position.x)][int(b.position.y)] = b.id
+	smackMapPositions[int(b.position.x)][int(b.position.y)] = b.id
 
 	rwLocker.Unlock()
 }
 
-func NewFlock() {
-	for i := 0; i < boidsCount; i++ {
-		boid := NewBoid(i)
-		flock[boid.id] = boid
+func NewSmack() {
+	for i := 0; i < jellysCount; i++ {
+		jelly := NewJellyFish(i)
+		smack[jelly.id] = jelly
 	}
 }
 
-func setEmptyFlocksMapsPosition() {
-	for i, row := range flockMapPositions {
+func setEmptySmacksMapsPosition() {
+	for i, row := range smackMapPositions {
 		for j := range row {
-			flockMapPositions[i][j] = -1
+			smackMapPositions[i][j] = -1
 		}
 	}
 }
 
-func setEachBoidPositionIntoFlockMap() {
-	for _, boid := range flock {
-		flockMapPositions[int(boid.position.x)][int(boid.position.y)] = boid.id
+func setEachJellyFishPositionIntoSmackMap() {
+	for _, jelly := range smack {
+		smackMapPositions[int(jelly.position.x)][int(jelly.position.y)] = jelly.id
 	}
 }
