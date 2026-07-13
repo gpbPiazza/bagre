@@ -30,9 +30,10 @@ const (
 var (
 	smackMapPositions = [screenWidth + 1][screenHeight + 1]int{}
 	// smack is the collective noun for jellyFish
-	smack    = make(map[int]*JellyFish, 0)
-	wes      *Wes
-	rwLocker = sync.RWMutex{}
+	smack        = make(map[int]*JellyFish, 0)
+	wes          *Wes
+	rwLocker     = sync.RWMutex{}
+	jellyWalkImg *ebiten.Image
 )
 
 type jellyState int
@@ -50,7 +51,7 @@ type JellyFish struct {
 	state    jellyState
 }
 
-func NewJellyFish(id int) *JellyFish {
+func newJellyFish(id int) *JellyFish {
 	b := &JellyFish{
 		position: Vector2D{x: rand.Float64() * screenWidth, y: rand.Float64() * screenHeight},
 		velocity: Vector2D{x: (rand.Float64() * 2) - 1.0, y: (rand.Float64() * 2) - 1.0},
@@ -187,22 +188,17 @@ func (j *JellyFish) move() {
 }
 
 func NewSmack() {
-
-	for i := 0; i < jellysCount; i++ {
-		jelly := NewJellyFish(i)
-		smack[jelly.id] = jelly
-	}
-}
-
-func setEmptySmacksMapsPosition() {
 	for i, row := range smackMapPositions {
 		for j := range row {
 			smackMapPositions[i][j] = -1
 		}
 	}
-}
 
-func setEachJellyFishPositionIntoSmackMap() {
+	for i := 0; i < jellysCount; i++ {
+		jelly := newJellyFish(i)
+		smack[jelly.id] = jelly
+	}
+
 	for _, jelly := range smack {
 		smackMapPositions[int(jelly.position.x)][int(jelly.position.y)] = jelly.id
 	}
@@ -223,34 +219,6 @@ func loadJellyImg() error {
 	jellyWalkImg = ebiten.NewImageFromImage(jellyImg)
 
 	return nil
-}
-
-func DrawJellyWalk(screen, img *ebiten.Image, tick, frameCount int, jelly *JellyFish) {
-	frameWidth, frameHeight := calcFrame(img, frameCount)
-
-	op := new(ebiten.DrawImageOptions)
-	op.GeoM.Translate(-float64(frameWidth)/2, -float64(frameHeight)/2) // center pin
-	op.GeoM.Scale(0.5, 0.5)                                            // shrink the sprite around that pin
-	op.GeoM.Translate(jelly.position.x, jelly.position.y)              // move
-
-	// Pick which frame to show, based on the clock.
-	// tick/5  -> hold each pose for 5 ticks (~12fps instead of 60)
-	// % frameCount -> loop back to frame 0 after the last frame (0..7)
-	i := (tick / 5) % frameCount
-
-	sx, sy := frameOX+i*frameWidth, frameOY
-
-	// SubImage returns a cropped VIEW into the sheet — the exact pixel rectangle
-	// (sx,sy)..(sx+48,sy+48), i.e. one 48x48 frame. No pixels are copied; it's a window.
-	//
-	// The sheet is one row: [frame0, frame1, frame2, frame3]
-	// Each Draw call crops just ONE frame (the one `i` points to right now).
-	// As g.tick advances over successive Draw calls, `i` steps 0→1→2→3→0…,
-	// so the sequence of stills played over time reads as animation.
-	cropRect := image.Rect(sx, sy, sx+frameWidth, sy+frameHeight)
-	walkFrame := img.SubImage(cropRect).(*ebiten.Image)
-
-	screen.DrawImage(walkFrame, op)
 }
 
 func (j *JellyFish) velocityMagnitude() float64 {

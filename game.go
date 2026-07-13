@@ -9,15 +9,10 @@ import (
 
 const (
 	screenWidth, screenHeight = 640, 360
-
-	frameOX        = 0 // frames start at the left edge
-	frameOY        = 0 // ...and at the top edge (single row)
-	walkFrameCount = 4 // Walk.png has 4 poses
 )
 
 var (
-	darkGrey     = color.RGBA{R: 40, G: 45, B: 60, A: 255}
-	jellyWalkImg *ebiten.Image
+	darkGrey = color.RGBA{R: 40, G: 45, B: 60, A: 255}
 )
 
 type Game struct {
@@ -61,6 +56,9 @@ type Unit interface {
 }
 
 func drawUnit(screen *ebiten.Image, unit Unit, tick int) {
+	frameOX := 0 // frames start at the left edge
+	frameOY := 0 // ...and at the top edge (single row)
+
 	img, tickCountPerPose, frameCount := unit.Draw()
 
 	frameWidth, frameHeight := calcFrame(img, frameCount)

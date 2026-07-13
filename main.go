@@ -18,10 +18,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	wes = NewWes(jellysCount + 2)
-	setEmptySmacksMapsPosition()
+	NewWes(jellysCount + 2)
 	NewSmack()
-	setEachJellyFishPositionIntoSmackMap()
 
 	s := NewGame()
 

@@ -50,6 +50,8 @@ func NewWes(id int) *Wes {
 		state:    wesWalkState,
 	}
 
+	wes = w
+
 	return w
 }
 
