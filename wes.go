@@ -30,8 +30,8 @@ var (
 // - ⁠antes do inimigo do wes aparecer, vai ter tartarugas, elas nao dao dano no wes mas elas comem os peixes dele, logo, ele fica menor. Ele compete com elas e elas empurram ele tomando stun
 
 const (
-	walk = iota
-	attack
+	wesWalkState = iota
+	wesAttackState
 )
 
 type Wes struct {
@@ -47,7 +47,7 @@ func NewWes(id int) *Wes {
 		position: Vector2D{x: screenWidth / 2, y: screenHeight / 2},
 		velocity: Vector2D{x: 1.0, y: 1.0},
 		id:       id,
-		state:    walk,
+		state:    wesWalkState,
 	}
 
 	return w
@@ -55,9 +55,9 @@ func NewWes(id int) *Wes {
 
 func (w *Wes) Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int) {
 	switch w.state {
-	case attack:
+	case wesAttackState:
 		return attackWesImg, 3, 6
-	case walk:
+	case wesWalkState:
 		return walkWesImg, 5, 4
 	default:
 		return walkWesImg, 5, 4
@@ -66,6 +66,15 @@ func (w *Wes) Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int) {
 
 func (w *Wes) Position() (float64, float64) {
 	return w.position.x, w.position.y
+}
+
+func (w *Wes) Scale() (float64, float64) {
+	switch w.state {
+	case wesAttackState:
+		return 1.3, 1.3
+	default:
+		return 1, 1
+	}
 }
 
 func (w *Wes) move() {
@@ -103,11 +112,11 @@ func (w *Wes) move() {
 	w.position = newPosition
 
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
-		w.state = walk
+		w.state = wesWalkState
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		w.state = attack
+		w.state = wesAttackState
 	}
 }
 
@@ -137,33 +146,4 @@ func loadWesImg() error {
 	attackWesImg = ebiten.NewImageFromImage(attackImg)
 
 	return nil
-}
-
-func DrawUnit(screen *ebiten.Image, unit Unit, tick int) {
-	img, tickCountPerPose, frameCount := unit.Draw()
-
-	frameWidth, frameHeight := calcFrame(img, frameCount)
-
-	op := new(ebiten.DrawImageOptions)
-	op.GeoM.Translate(-float64(frameWidth)/2, -float64(frameHeight)/2) // center pin
-	op.GeoM.Translate(wes.position.x, wes.position.y)                  // move
-
-	// Pick which frame to show, based on the clock.
-	// tick/5  -> hold each pose for 5 ticks (~12fps instead of 60)
-	// % frameCount -> loop back to frame 0 after the last frame (0..7)
-	i := (tick / tickCountPerPose) % frameCount
-
-	sx, sy := frameOX+i*frameWidth, frameOY
-
-	// SubImage returns a cropped VIEW into the sheet — the exact pixel rectangle
-	// (sx,sy)..(sx+48,sy+48), i.e. one 48x48 frame. No pixels are copied; it's a window.
-	//
-	// The sheet is one row: [frame0, frame1, frame2, frame3]
-	// Each Draw call crops just ONE frame (the one `i` points to right now).
-	// As g.tick advances over successive Draw calls, `i` steps 0→1→2→3→0…,
-	// so the sequence of stills played over time reads as animation.
-	cropRect := image.Rect(sx, sy, sx+frameWidth, sy+frameHeight)
-	walkFrame := img.SubImage(cropRect).(*ebiten.Image)
-
-	screen.DrawImage(walkFrame, op)
 }

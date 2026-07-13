@@ -16,8 +16,8 @@ const (
 )
 
 var (
-	darkGrey    = color.RGBA{R: 40, G: 45, B: 60, A: 255}
-	jellyRunner *ebiten.Image
+	darkGrey     = color.RGBA{R: 40, G: 45, B: 60, A: 255}
+	jellyWalkImg *ebiten.Image
 )
 
 type Game struct {
@@ -44,17 +44,50 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(darkGrey)
 	for _, jelly := range smack {
-		DrawJellyWalk(screen, jellyRunner, g.tick, walkFrameCount, jelly)
+		drawUnit(screen, jelly, g.tick)
 	}
 
-	DrawUnit(screen, wes, g.tick)
+	drawUnit(screen, wes, g.tick)
 }
 
 type Unit interface {
 	// Draw return every property needed to propertly draw a unit
 	// Draw itself dont draw the unit. just return data
 	Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int)
+
+	Scale() (float64, float64)
+
 	Position() (float64, float64)
+}
+
+func drawUnit(screen *ebiten.Image, unit Unit, tick int) {
+	img, tickCountPerPose, frameCount := unit.Draw()
+
+	frameWidth, frameHeight := calcFrame(img, frameCount)
+
+	op := new(ebiten.DrawImageOptions)
+	op.GeoM.Translate(-float64(frameWidth)/2, -float64(frameHeight)/2) // center pin
+	op.GeoM.Scale(unit.Scale())                                        // shrink or grow the sprite around that pin
+	op.GeoM.Translate(unit.Position())                                 // move
+
+	// Pick which frame to show, based on the clock.
+	// tick/5  -> hold each pose for 5 ticks (~12fps instead of 60)
+	// % frameCount -> loop back to frame 0 after the last frame (0..7)
+	i := (tick / tickCountPerPose) % frameCount
+
+	sx, sy := frameOX+i*frameWidth, frameOY
+
+	// SubImage returns a cropped VIEW into the sheet — the exact pixel rectangle
+	// (sx,sy)..(sx+48,sy+48), i.e. one 48x48 frame. No pixels are copied; it's a window.
+	//
+	// The sheet is one row: [frame0, frame1, frame2, frame3]
+	// Each Draw call crops just ONE frame (the one `i` points to right now).
+	// As g.tick advances over successive Draw calls, `i` steps 0→1→2→3→0…,
+	// so the sequence of stills played over time reads as animation.
+	cropRect := image.Rect(sx, sy, sx+frameWidth, sy+frameHeight)
+	walkFrame := img.SubImage(cropRect).(*ebiten.Image)
+
+	screen.DrawImage(walkFrame, op)
 }
 
 func calcFrame(img image.Image, frameCount int) (width, height int) {

@@ -35,10 +35,19 @@ var (
 	rwLocker = sync.RWMutex{}
 )
 
+type jellyState int
+
+const (
+	jellyStateWalk jellyState = iota
+	jellyStateAttack
+	jellyStateDie
+)
+
 type JellyFish struct {
 	position Vector2D
 	velocity Vector2D
 	id       int
+	state    jellyState
 }
 
 func NewJellyFish(id int) *JellyFish {
@@ -46,6 +55,7 @@ func NewJellyFish(id int) *JellyFish {
 		position: Vector2D{x: rand.Float64() * screenWidth, y: rand.Float64() * screenHeight},
 		velocity: Vector2D{x: (rand.Float64() * 2) - 1.0, y: (rand.Float64() * 2) - 1.0},
 		id:       id,
+		state:    jellyStateWalk,
 	}
 
 	go b.swim()
@@ -53,9 +63,26 @@ func NewJellyFish(id int) *JellyFish {
 	return b
 }
 
-func (b *JellyFish) swim() {
+func (j *JellyFish) Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int) {
+	switch j.state {
+	case wesWalkState:
+		return jellyWalkImg, 5, 4
+	default:
+		return jellyWalkImg, 5, 4
+	}
+}
+
+func (j *JellyFish) Position() (float64, float64) {
+	return j.position.x, j.position.y
+}
+
+func (j *JellyFish) Scale() (float64, float64) {
+	return 0.5, 0.5
+}
+
+func (j *JellyFish) swim() {
 	for {
-		b.move()
+		j.move()
 		time.Sleep(5 * time.Millisecond)
 	}
 }
@@ -67,9 +94,9 @@ func (b *JellyFish) swim() {
 // - Constant motion — fish always cruise; forces change direction, not whether they move.
 // - Local awareness — each fish reacts to a few near neighbors, not the whole tank.
 // - Tension, not equilibrium — separation slightly wins up close (no overlap), cohesion pulls loosely at medium range, alignment keeps sub-groups coherent — but they never perfectly cancel.
-func (b *JellyFish) calcAcceleration() Vector2D {
-	upperView := b.position.AddVal(jellyViewRadius)
-	lowerView := b.position.AddVal(-jellyViewRadius)
+func (j *JellyFish) calcAcceleration() Vector2D {
+	upperView := j.position.AddVal(jellyViewRadius)
+	lowerView := j.position.AddVal(-jellyViewRadius)
 	// all variables with prefix all here mean all elements inside of viewBox, inside of JellyFish View Radius
 	allJellyFishsVelocity := Vector2D{x: 0, y: 0}
 	allJellyFishsPosition := Vector2D{x: 0, y: 0}
@@ -78,16 +105,16 @@ func (b *JellyFish) calcAcceleration() Vector2D {
 
 	rwLocker.RLock()
 	for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
-		for j := math.Max(lowerView.y, 0); j <= math.Min(upperView.y, screenHeight); j++ {
-			seenJellyFishID := smackMapPositions[int(i)][int(j)]
-			if seenJellyFishID != -1 && b.id != seenJellyFishID {
+		for k := math.Max(lowerView.y, 0); k <= math.Min(upperView.y, screenHeight); k++ {
+			seenJellyFishID := smackMapPositions[int(i)][int(k)]
+			if seenJellyFishID != -1 && j.id != seenJellyFishID {
 				seenJellyFish := smack[seenJellyFishID]
-				dist := seenJellyFish.position.Distance(b.position)
+				dist := seenJellyFish.position.Distance(j.position)
 				if dist < jellyViewRadius {
 					jellysCount++
 					allJellyFishsVelocity = allJellyFishsVelocity.Add(seenJellyFish.velocity)   // Direction
 					allJellyFishsPosition = allJellyFishsPosition.Add(seenJellyFish.position)   // move to the center
-					separation := b.position.Subtract(seenJellyFish.position).DivisionVal(dist) // push aways too close
+					separation := j.position.Subtract(seenJellyFish.position).DivisionVal(dist) // push aways too close
 					allJellyFishsSeparation = allJellyFishsSeparation.Add(separation)           // push aways too close
 				}
 			}
@@ -95,15 +122,15 @@ func (b *JellyFish) calcAcceleration() Vector2D {
 	}
 	rwLocker.RUnlock()
 
-	borderBounceX := b.borderBounce(b.position.x, screenWidth)
-	borderBouncey := b.borderBounce(b.position.y, screenHeight)
+	borderBounceX := j.borderBounce(j.position.x, screenWidth)
+	borderBouncey := j.borderBounce(j.position.y, screenHeight)
 	accel := Vector2D{x: borderBounceX, y: borderBouncey}
 
 	if jellysCount > 0 {
 		avgVelocity := allJellyFishsVelocity.DivisionVal(jellysCount)
 		avgPosition := allJellyFishsPosition.DivisionVal(jellysCount)
-		accelAligment := avgVelocity.Subtract(b.velocity).MultiplyVal(adjustRateAligment)
-		accelCohesion := avgPosition.Subtract(b.position).MultiplyVal(adjustRateCohesion)
+		accelAligment := avgVelocity.Subtract(j.velocity).MultiplyVal(adjustRateAligment)
+		accelCohesion := avgPosition.Subtract(j.position).MultiplyVal(adjustRateCohesion)
 		accelSepartion := allJellyFishsSeparation.MultiplyVal(adjustRateSeparation)
 		accel = accel.Add(accelAligment).Add(accelCohesion).Add(accelSepartion)
 	}
@@ -112,7 +139,7 @@ func (b *JellyFish) calcAcceleration() Vector2D {
 }
 
 // Quanto mais próximo da borda mais rápido será o bounce
-func (b *JellyFish) borderBounce(pos, border float64) float64 {
+func (j *JellyFish) borderBounce(pos, border float64) float64 {
 
 	// Está próximo da bater na borda, passou do limite de vistualização
 	// ou seja o passarinho viu a parede e irá mudar de direção
@@ -129,32 +156,32 @@ func (b *JellyFish) borderBounce(pos, border float64) float64 {
 	return 0
 }
 
-func (b *JellyFish) move() {
+func (j *JellyFish) move() {
 	minSpeed := 0.5
 	maxSpeed := 1.5
 
-	accel := b.calcAcceleration()
+	accel := j.calcAcceleration()
 
 	rwLocker.Lock()
-	b.velocity = b.velocity.Add(accel)
+	j.velocity = j.velocity.Add(accel)
 
 	// Cruising speed: only change the LENGTH of velocity, never its direction.
 	// Floor (minSpeed) = never stall into a frozen blob.
 	// Ceiling (maxSpeed) = never blast off across the screen.
-	velocityMag := b.velocityMagnitude()
+	velocityMag := j.velocityMagnitude()
 	if velocityMag < minSpeed {
-		b.velocity = b.velocity.ScaleToLength(minSpeed)
+		j.velocity = j.velocity.ScaleToLength(minSpeed)
 	}
 	if velocityMag > maxSpeed {
-		b.velocity = b.velocity.ScaleToLength(maxSpeed)
+		j.velocity = j.velocity.ScaleToLength(maxSpeed)
 	}
 
 	//set the current position to -1, empty space
-	smackMapPositions[int(b.position.x)][int(b.position.y)] = -1
+	smackMapPositions[int(j.position.x)][int(j.position.y)] = -1
 	// move
-	b.position = b.position.Add(b.velocity)
+	j.position = j.position.Add(j.velocity)
 	// fill the new position into the map
-	smackMapPositions[int(b.position.x)][int(b.position.y)] = b.id
+	smackMapPositions[int(j.position.x)][int(j.position.y)] = j.id
 
 	rwLocker.Unlock()
 }
@@ -193,7 +220,7 @@ func loadJellyImg() error {
 		return err
 	}
 
-	jellyRunner = ebiten.NewImageFromImage(jellyImg)
+	jellyWalkImg = ebiten.NewImageFromImage(jellyImg)
 
 	return nil
 }
@@ -226,6 +253,6 @@ func DrawJellyWalk(screen, img *ebiten.Image, tick, frameCount int, jelly *Jelly
 	screen.DrawImage(walkFrame, op)
 }
 
-func (b *JellyFish) velocityMagnitude() float64 {
-	return b.velocity.Pythagoras()
+func (j *JellyFish) velocityMagnitude() float64 {
+	return j.velocity.Pythagoras()
 }
