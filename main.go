@@ -18,8 +18,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	keyboard = make(chan ebiten.Key)
-
 	wes = NewWes(jellysCount + 2)
 	setEmptySmacksMapsPosition()
 	NewSmack()

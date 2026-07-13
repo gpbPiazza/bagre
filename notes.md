@@ -84,3 +84,7 @@ i := (g.tick / 5) % walkFrameCount
 - No `for` over frames in Draw — each Draw crops ONE frame. Progression happens ACROSS Draw calls as `tick` advances + the `%` wrap. Stills over time = motion (like film). The illusion lives in TIME.
 
 One sentence: keep one clock (`tick`), use it to index into a filmstrip (`SubImage`), and use a transform (`GeoM`) to place that frame on the freshly-repainted screen — 60x/sec.
+
+## Keyboard input
+
+Poll key state directly inside `Update` (which runs ~60x/sec) — don't push events through channels/goroutines (that races on position, stalls the loop, and `inpututil` only works when called from `Update`). Use `ebiten.IsKeyPressed(key)` for continuous hold-to-move (true every frame the key is down → move every frame; use separate `if`s not a `switch` so W+D can combine into a diagonal), and `inpututil.IsKeyJustPressed(key)` for discrete one-per-tap actions like attack. Remember `-Y` is up, assign vector results back (value receivers), and clamp position to the screen bounds.

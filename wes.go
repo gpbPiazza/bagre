@@ -24,10 +24,6 @@ import (
 // - ⁠wes perde se acabar o tempo
 // - ⁠antes do inimigo do wes aparecer, vai ter tartarugas, elas nao dao dano no wes mas elas comem os peixes dele, logo, ele fica menor. Ele compete com elas e elas empurram ele tomando stun
 
-var (
-	keyboard chan (ebiten.Key)
-)
-
 type Wes struct {
 	position Vector2D
 	velocity Vector2D
