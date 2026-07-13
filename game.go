@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -15,10 +16,8 @@ const (
 )
 
 var (
-	green       = color.RGBA{R: 10, G: 255, B: 50}
 	darkGrey    = color.RGBA{R: 40, G: 45, B: 60, A: 255}
 	jellyRunner *ebiten.Image
-	wesRunner   *ebiten.Image
 )
 
 type Game struct {
@@ -37,7 +36,7 @@ func NewGame() *Game {
 func (g *Game) Update() error {
 	g.tick++
 
-	wes.swim()
+	wes.move()
 
 	return nil
 }
@@ -47,10 +46,18 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for _, jelly := range smack {
 		DrawJellyWalk(screen, jellyRunner, g.tick, walkFrameCount, jelly)
 	}
-	DrawWesWalk(screen, wesRunner, g.tick, walkFrameCount, wes)
+
+	DrawUnit(screen, wes, g.tick)
 }
 
-func calcFrame(img *ebiten.Image, frameCount int) (width, height int) {
+type Unit interface {
+	// Draw return every property needed to propertly draw a unit
+	// Draw itself dont draw the unit. just return data
+	Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int)
+	Position() (float64, float64)
+}
+
+func calcFrame(img image.Image, frameCount int) (width, height int) {
 	rec := img.Bounds()
 	imgWidht := rec.Dx()
 	imgHeight := rec.Dy()

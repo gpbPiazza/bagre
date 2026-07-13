@@ -10,6 +10,11 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
+var (
+	attackWesImg *ebiten.Image
+	walkWesImg   *ebiten.Image
+)
+
 // conforme o wes for comendo os peixes ele fica maior
 // seu tamanho determina se  o inimigo do wes te medo dele ou não
 // inimigo do wes quer matar ele. Wes quer comer maximo de peixer possíveis
@@ -24,10 +29,17 @@ import (
 // - ⁠wes perde se acabar o tempo
 // - ⁠antes do inimigo do wes aparecer, vai ter tartarugas, elas nao dao dano no wes mas elas comem os peixes dele, logo, ele fica menor. Ele compete com elas e elas empurram ele tomando stun
 
+const (
+	walk = iota
+	attack
+)
+
 type Wes struct {
 	position Vector2D
 	velocity Vector2D
 	id       int
+
+	state int
 }
 
 func NewWes(id int) *Wes {
@@ -35,50 +47,101 @@ func NewWes(id int) *Wes {
 		position: Vector2D{x: screenWidth / 2, y: screenHeight / 2},
 		velocity: Vector2D{x: 1.0, y: 1.0},
 		id:       id,
+		state:    walk,
 	}
 
 	return w
 }
 
-func (w *Wes) swim() {
+func (w *Wes) Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int) {
+	switch w.state {
+	case attack:
+		return attackWesImg, 3, 6
+	case walk:
+		return walkWesImg, 5, 4
+	default:
+		return walkWesImg, 5, 4
+	}
+}
+
+func (w *Wes) Position() (float64, float64) {
+	return w.position.x, w.position.y
+}
+
+func (w *Wes) move() {
 	const speed = 2.0
+
+	newPosition := w.position
 	if ebiten.IsKeyPressed(ebiten.KeyW) {
-		wes.position = wes.position.SubY(speed)
+		newPosition.y = w.position.SubY(speed).y
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyS) {
-		wes.position = wes.position.AddY(speed)
+		newPosition.y = w.position.AddY(speed).y
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyA) {
-		wes.position = wes.position.SubX(speed)
+		newPosition.x = w.position.SubX(speed).x
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyD) {
-		wes.position = wes.position.AddX(speed)
+		newPosition.x = w.position.AddX(speed).x
 	}
 
-	// discrete action — still JustPressed, fires once per tap
+	// 10 px visually good
+	if newPosition.x > screenWidth-10 {
+		newPosition.x = screenWidth - 10
+	}
+	if newPosition.x < 10 {
+		newPosition.x = 10
+	}
+	if newPosition.y > screenHeight-10 {
+		newPosition.y = screenHeight - 10
+	}
+	if newPosition.y < 10 {
+		newPosition.y = 10
+	}
+
+	log.Println("WES position!", newPosition)
+	w.position = newPosition
+
+	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
+		w.state = walk
+	}
+
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		log.Println("WES attaque agora!! ROAR!")
+		w.state = attack
 	}
 }
 
 func loadWesImg() error {
-	wesBytesPng, err := os.ReadFile("./assets/wes/Walk.png")
+	walk, err := os.ReadFile("./assets/wes/Walk.png")
 	if err != nil {
 		return err
 	}
 
-	wesImg, imgName, err := image.Decode(bytes.NewReader(wesBytesPng))
-	log.Default().Printf("open img %s", imgName)
+	walkImg, _, err := image.Decode(bytes.NewReader(walk))
 	if err != nil {
 		return err
 	}
 
-	wesRunner = ebiten.NewImageFromImage(wesImg)
+	walkWesImg = ebiten.NewImageFromImage(walkImg)
+
+	attack, err := os.ReadFile("./assets/wes/Attack.png")
+	if err != nil {
+		return err
+	}
+
+	attackImg, _, err := image.Decode(bytes.NewReader(attack))
+	if err != nil {
+		return err
+	}
+
+	attackWesImg = ebiten.NewImageFromImage(attackImg)
 
 	return nil
 }
 
-func DrawWesWalk(screen, img *ebiten.Image, tick, frameCount int, wes *Wes) {
+func DrawUnit(screen *ebiten.Image, unit Unit, tick int) {
+	img, tickCountPerPose, frameCount := unit.Draw()
+
 	frameWidth, frameHeight := calcFrame(img, frameCount)
 
 	op := new(ebiten.DrawImageOptions)
@@ -88,7 +151,7 @@ func DrawWesWalk(screen, img *ebiten.Image, tick, frameCount int, wes *Wes) {
 	// Pick which frame to show, based on the clock.
 	// tick/5  -> hold each pose for 5 ticks (~12fps instead of 60)
 	// % frameCount -> loop back to frame 0 after the last frame (0..7)
-	i := (tick / 5) % frameCount
+	i := (tick / tickCountPerPose) % frameCount
 
 	sx, sy := frameOX+i*frameWidth, frameOY
 
