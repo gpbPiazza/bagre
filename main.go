@@ -18,8 +18,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	NewWes(jellysCount + 2)
-	NewSmack()
+	wes = NewWes(jellysCount + 2)
+	NewSmack(wes)
 
 	s := NewGame()
 

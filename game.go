@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	screenWidth, screenHeight = 640, 360
+	screenWidth, screenHeight = 1150, 550
 )
 
 var (
@@ -38,7 +38,8 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(darkGrey)
-	for _, jelly := range smack {
+
+	for _, jelly := range units {
 		drawUnit(screen, jelly, g.tick)
 	}
 
@@ -53,6 +54,10 @@ type Unit interface {
 	Scale() (float64, float64)
 
 	Position() (float64, float64)
+
+	VecVelocity() Vector2D
+	VecPosition() Vector2D
+	ID() int
 }
 
 func drawUnit(screen *ebiten.Image, unit Unit, tick int) {

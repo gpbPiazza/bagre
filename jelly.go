@@ -28,9 +28,9 @@ const (
 )
 
 var (
-	smackMapPositions = [screenWidth + 1][screenHeight + 1]int{}
-	// smack is the collective noun for jellyFish
-	smack        = make(map[int]*JellyFish, 0)
+	unitsByPositions = [screenWidth + 1][screenHeight + 1]int{}
+	// units is the collective noun for jellyFish
+	units        = make(map[int]Unit, 0)
 	wes          *Wes
 	rwLocker     = sync.RWMutex{}
 	jellyWalkImg *ebiten.Image
@@ -81,6 +81,18 @@ func (j *JellyFish) Scale() (float64, float64) {
 	return 0.5, 0.5
 }
 
+func (j *JellyFish) VecPosition() Vector2D {
+	return j.position
+}
+
+func (j *JellyFish) ID() int {
+	return j.id
+}
+
+func (j *JellyFish) VecVelocity() Vector2D {
+	return j.velocity
+}
+
 func (j *JellyFish) swim() {
 	for {
 		j.move()
@@ -102,22 +114,39 @@ func (j *JellyFish) calcAcceleration() Vector2D {
 	allJellyFishsVelocity := Vector2D{x: 0, y: 0}
 	allJellyFishsPosition := Vector2D{x: 0, y: 0}
 	allJellyFishsSeparation := Vector2D{x: 0, y: 0}
+	allFleeWes := Vector2D{x: 0, y: 0}
+
 	jellysCount := 0.0
+	wesSeen := false
 
 	rwLocker.RLock()
 	for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
 		for k := math.Max(lowerView.y, 0); k <= math.Min(upperView.y, screenHeight); k++ {
-			seenJellyFishID := smackMapPositions[int(i)][int(k)]
-			if seenJellyFishID != -1 && j.id != seenJellyFishID {
-				seenJellyFish := smack[seenJellyFishID]
-				dist := seenJellyFish.position.Distance(j.position)
-				if dist < jellyViewRadius {
-					jellysCount++
-					allJellyFishsVelocity = allJellyFishsVelocity.Add(seenJellyFish.velocity)   // Direction
-					allJellyFishsPosition = allJellyFishsPosition.Add(seenJellyFish.position)   // move to the center
-					separation := j.position.Subtract(seenJellyFish.position).DivisionVal(dist) // push aways too close
-					allJellyFishsSeparation = allJellyFishsSeparation.Add(separation)           // push aways too close
-				}
+			seenJellyFishID := unitsByPositions[int(i)][int(k)]
+
+			if seenJellyFishID == -1 || j.id == seenJellyFishID {
+				continue
+			}
+
+			seenUnit := units[seenJellyFishID]
+			seenPosition := seenUnit.VecPosition()
+			seenVelocity := seenUnit.VecVelocity()
+
+			if seenJellyFishID == wes.id {
+				wesSeen = true
+
+				dist := seenPosition.Distance(j.position)
+				separation := j.position.Subtract(seenPosition).DivisionVal(dist - dist/2) // push aways too close
+				allFleeWes = allFleeWes.Add(separation)                                    // push aways too close
+			}
+
+			dist := seenPosition.Distance(j.position)
+			if dist < jellyViewRadius {
+				jellysCount++
+				allJellyFishsVelocity = allJellyFishsVelocity.Add(seenVelocity)   // Direction
+				allJellyFishsPosition = allJellyFishsPosition.Add(seenPosition)   // move to the center
+				separation := j.position.Subtract(seenPosition).DivisionVal(dist) // push aways too close
+				allJellyFishsSeparation = allJellyFishsSeparation.Add(separation) // push aways too close
 			}
 		}
 	}
@@ -134,6 +163,10 @@ func (j *JellyFish) calcAcceleration() Vector2D {
 		accelCohesion := avgPosition.Subtract(j.position).MultiplyVal(adjustRateCohesion)
 		accelSepartion := allJellyFishsSeparation.MultiplyVal(adjustRateSeparation)
 		accel = accel.Add(accelAligment).Add(accelCohesion).Add(accelSepartion)
+	}
+
+	if wesSeen {
+		accel = accel.Add(allFleeWes)
 	}
 
 	return accel
@@ -178,30 +211,34 @@ func (j *JellyFish) move() {
 	}
 
 	//set the current position to -1, empty space
-	smackMapPositions[int(j.position.x)][int(j.position.y)] = -1
+	unitsByPositions[int(j.position.x)][int(j.position.y)] = -1
 	// move
 	j.position = j.position.Add(j.velocity)
 	// fill the new position into the map
-	smackMapPositions[int(j.position.x)][int(j.position.y)] = j.id
+	unitsByPositions[int(j.position.x)][int(j.position.y)] = j.id
 
 	rwLocker.Unlock()
 }
 
-func NewSmack() {
-	for i, row := range smackMapPositions {
+func NewSmack(wes *Wes) {
+	for i, row := range unitsByPositions {
 		for j := range row {
-			smackMapPositions[i][j] = -1
+			unitsByPositions[i][j] = -1
 		}
 	}
 
 	for i := 0; i < jellysCount; i++ {
 		jelly := newJellyFish(i)
-		smack[jelly.id] = jelly
+		units[jelly.id] = jelly
 	}
 
-	for _, jelly := range smack {
-		smackMapPositions[int(jelly.position.x)][int(jelly.position.y)] = jelly.id
+	for _, jelly := range units {
+		x, y := jelly.Position()
+		unitsByPositions[int(x)][int(y)] = jelly.ID()
 	}
+
+	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
+	units[wes.id] = wes
 }
 
 func loadJellyImg() error {

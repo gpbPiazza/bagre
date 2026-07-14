@@ -70,6 +70,18 @@ func (w *Wes) Position() (float64, float64) {
 	return w.position.x, w.position.y
 }
 
+func (w *Wes) VecPosition() Vector2D {
+	return w.position
+}
+
+func (w *Wes) ID() int {
+	return w.id
+}
+
+func (w *Wes) VecVelocity() Vector2D {
+	return w.velocity
+}
+
 func (w *Wes) Scale() (float64, float64) {
 	switch w.state {
 	case wesAttackState:
@@ -111,7 +123,9 @@ func (w *Wes) move() {
 	}
 
 	log.Println("WES position!", newPosition)
+
 	w.position = newPosition
+	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
 
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
 		w.state = wesWalkState
