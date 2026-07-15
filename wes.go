@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"log/slog"
+	"math"
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -32,6 +33,7 @@ var (
 const (
 	wesWalkState = iota
 	wesAttackState
+	wesDieState
 )
 
 type Wes struct {
@@ -39,17 +41,19 @@ type Wes struct {
 	velocity Vector2D
 	id       int
 
-	state  int
-	logger *slog.Logger
+	state      int
+	logger     *slog.Logger
+	viewRadius float64
 }
 
 func NewWes(id int, l *slog.Logger) *Wes {
 	w := &Wes{
-		position: Vector2D{x: screenWidth / 2, y: screenHeight / 2},
-		velocity: Vector2D{x: 1.0, y: 1.0},
-		id:       id,
-		state:    wesWalkState,
-		logger:   l,
+		position:   Vector2D{x: screenWidth / 2, y: screenHeight / 2},
+		velocity:   Vector2D{x: 1.0, y: 1.0},
+		id:         id,
+		state:      wesWalkState,
+		logger:     l,
+		viewRadius: 100,
 	}
 
 	wes = w
@@ -124,7 +128,7 @@ func (w *Wes) move() {
 		newPosition.y = 10
 	}
 
-	w.logger.Info("Wes position", "x", newPosition.x, "y", newPosition.y)
+	// w.logger.Info("Wes position", "x", newPosition.x, "y", newPosition.y)
 
 	w.position = newPosition
 	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
@@ -134,8 +138,43 @@ func (w *Wes) move() {
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		w.state = wesAttackState
+		w.Attack()
 	}
+}
+
+func (w *Wes) Die() {}
+
+func (w *Wes) Attack() {
+	w.state = wesAttackState
+
+	upperView := w.position.AddVal(w.viewRadius)
+	lowerView := w.position.AddVal(-w.viewRadius)
+
+	// i -> x
+	// k -> y
+	for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
+		for k := math.Max(lowerView.y, 0); k <= math.Min(upperView.y, screenHeight); k++ {
+			seenUnitID := unitsByPositions[int(i)][int(k)]
+			if seenUnitID == -1 || w.id == seenUnitID {
+				continue
+			}
+
+			seenUnit := units[seenUnitID]
+
+			// Panic aqui também durante o attacque
+			w.logger.Info("Wes guloso comeu", "unit", seenUnit.ID())
+			seenUnit.Die()
+
+			// Pego o hit
+			// 1. jelly para de andar ok
+			// 2. animação de morte ok
+			//
+			// 3. ela não existe mais no game inprogress
+			// - outras jellies não consideram a positição de jelliues mortas na conta // todo resolver isso dps
+			// - como eu tiro a imagem da tela após terminar a animação? //
+		}
+	}
+
 }
 
 func loadWesImg() error {

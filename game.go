@@ -39,11 +39,9 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(darkGrey)
 
-	for _, jelly := range units {
-		drawUnit(screen, jelly, g.tick)
+	for _, u := range units {
+		drawUnit(screen, u, g.tick)
 	}
-
-	drawUnit(screen, wes, g.tick)
 }
 
 type Unit interface {
@@ -58,6 +56,8 @@ type Unit interface {
 	VecVelocity() Vector2D
 	VecPosition() Vector2D
 	ID() int
+
+	Die()
 }
 
 func drawUnit(screen *ebiten.Image, unit Unit, tick int) {

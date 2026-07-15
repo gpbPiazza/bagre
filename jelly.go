@@ -2,11 +2,13 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image"
-	"log"
+	"log/slog"
 	"math"
 	"math/rand"
 	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -30,13 +32,25 @@ const (
 var (
 	unitsByPositions = [screenWidth + 1][screenHeight + 1]int{}
 	// units is the collective noun for jellyFish
-	units        = make(map[int]Unit, 0)
-	wes          *Wes
-	rwLocker     = sync.RWMutex{}
-	jellyWalkImg *ebiten.Image
+	units         = make(map[int]Unit, 0)
+	wes           *Wes
+	rwLocker      = sync.RWMutex{}
+	jellyWalkImg  *ebiten.Image
+	jellyDeathImg *ebiten.Image
 )
 
 type jellyState int
+
+func (js jellyState) String() string {
+	switch js {
+	case jellyStateWalk:
+		return "walk"
+	case jellyStateDie:
+		return "dead"
+	default:
+		return fmt.Sprintf("not mapped state - %d", js)
+	}
+}
 
 const (
 	jellyStateWalk jellyState = iota
@@ -49,14 +63,16 @@ type JellyFish struct {
 	velocity Vector2D
 	id       int
 	state    jellyState
+	logger   *slog.Logger
 }
 
-func newJellyFish(id int) *JellyFish {
+func newJellyFish(id int, l *slog.Logger) *JellyFish {
 	b := &JellyFish{
 		position: Vector2D{x: rand.Float64() * screenWidth, y: rand.Float64() * screenHeight},
 		velocity: Vector2D{x: (rand.Float64() * 2) - 1.0, y: (rand.Float64() * 2) - 1.0},
 		id:       id,
 		state:    jellyStateWalk,
+		logger:   l,
 	}
 
 	go b.swim()
@@ -66,8 +82,10 @@ func newJellyFish(id int) *JellyFish {
 
 func (j *JellyFish) Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int) {
 	switch j.state {
-	case wesWalkState:
+	case jellyStateWalk:
 		return jellyWalkImg, 5, 4
+	case wesDieState:
+		return jellyDeathImg, 10, 6
 	default:
 		return jellyWalkImg, 5, 4
 	}
@@ -78,7 +96,7 @@ func (j *JellyFish) Position() (float64, float64) {
 }
 
 func (j *JellyFish) Scale() (float64, float64) {
-	return 0.5, 0.5
+	return 1, 1
 }
 
 func (j *JellyFish) VecPosition() Vector2D {
@@ -93,7 +111,35 @@ func (j *JellyFish) VecVelocity() Vector2D {
 	return j.velocity
 }
 
+func (j *JellyFish) Die() {
+	j.logger.Info("Setting die state")
+
+	j.state = jellyStateDie
+
+	rwLocker.Lock()
+	{
+		delete(units, j.id)
+		// isso aqui não espera animaçõa de morte acabar
+		// concorrencia -> tem gente lendo enquanto isso aqui mata
+		unitsByPositions[int(j.position.x)][int(j.position.y)] = -1
+	}
+	rwLocker.Unlock()
+}
+
 func (j *JellyFish) swim() {
+	defer func() {
+		got := recover()
+		if got == nil {
+			return
+		}
+		j.logger.Error("jelly panic",
+			"jelly_id", j.id,
+			"jelly_state", j.state.String(),
+			"panic", got,
+			"stack", string(debug.Stack()),
+		)
+	}()
+
 	for {
 		j.move()
 		time.Sleep(5 * time.Millisecond)
@@ -129,12 +175,12 @@ func (j *JellyFish) calcAcceleration() Vector2D {
 			}
 
 			seenUnit := units[seenJellyFishID]
+
 			seenPosition := seenUnit.VecPosition()
 			seenVelocity := seenUnit.VecVelocity()
 
 			if seenJellyFishID == wes.id {
 				wesSeen = true
-
 				dist := seenPosition.Distance(j.position)
 				separation := j.position.Subtract(seenPosition).DivisionVal(dist - dist/2) // push aways too close
 				allFleeWes = allFleeWes.Add(separation)                                    // push aways too close
@@ -191,36 +237,41 @@ func (j *JellyFish) borderBounce(pos, border float64) float64 {
 }
 
 func (j *JellyFish) move() {
+	if j.state == jellyStateDie {
+		return
+	}
+
 	minSpeed := 0.5
 	maxSpeed := 1.5
 
 	accel := j.calcAcceleration()
 
 	rwLocker.Lock()
-	j.velocity = j.velocity.Add(accel)
+	{
+		j.velocity = j.velocity.Add(accel)
 
-	// Cruising speed: only change the LENGTH of velocity, never its direction.
-	// Floor (minSpeed) = never stall into a frozen blob.
-	// Ceiling (maxSpeed) = never blast off across the screen.
-	velocityMag := j.velocityMagnitude()
-	if velocityMag < minSpeed {
-		j.velocity = j.velocity.ScaleToLength(minSpeed)
+		// Cruising speed: only change the LENGTH of velocity, never its direction.
+		// Floor (minSpeed) = never stall into a frozen blob.
+		// Ceiling (maxSpeed) = never blast off across the screen.
+		velocityMag := j.velocityMagnitude()
+		if velocityMag < minSpeed {
+			j.velocity = j.velocity.ScaleToLength(minSpeed)
+		}
+		if velocityMag > maxSpeed {
+			j.velocity = j.velocity.ScaleToLength(maxSpeed)
+		}
+
+		//set the current position to -1, empty space
+		unitsByPositions[int(j.position.x)][int(j.position.y)] = -1
+		// move
+		j.position = j.position.Add(j.velocity)
+		// fill the new position into the map
+		unitsByPositions[int(j.position.x)][int(j.position.y)] = j.id
 	}
-	if velocityMag > maxSpeed {
-		j.velocity = j.velocity.ScaleToLength(maxSpeed)
-	}
-
-	//set the current position to -1, empty space
-	unitsByPositions[int(j.position.x)][int(j.position.y)] = -1
-	// move
-	j.position = j.position.Add(j.velocity)
-	// fill the new position into the map
-	unitsByPositions[int(j.position.x)][int(j.position.y)] = j.id
-
 	rwLocker.Unlock()
 }
 
-func NewSmack(wes *Wes) {
+func NewSmack(wes *Wes, logger *slog.Logger) {
 	for i, row := range unitsByPositions {
 		for j := range row {
 			unitsByPositions[i][j] = -1
@@ -228,7 +279,7 @@ func NewSmack(wes *Wes) {
 	}
 
 	for i := 0; i < jellysCount; i++ {
-		jelly := newJellyFish(i)
+		jelly := newJellyFish(i, logger)
 		units[jelly.id] = jelly
 	}
 
@@ -246,14 +297,21 @@ func loadJellyImg() error {
 	if err != nil {
 		return err
 	}
-
-	jellyImg, imgName, err := image.Decode(bytes.NewReader(jellyBytesPng))
-	log.Default().Printf("open img %s", imgName)
+	jellyImg, _, err := image.Decode(bytes.NewReader(jellyBytesPng))
 	if err != nil {
 		return err
 	}
-
 	jellyWalkImg = ebiten.NewImageFromImage(jellyImg)
+
+	diePng, err := os.ReadFile("./assets/jellyfish/Death.png")
+	if err != nil {
+		return err
+	}
+	dieImg, _, err := image.Decode(bytes.NewReader(diePng))
+	if err != nil {
+		return err
+	}
+	jellyDeathImg = ebiten.NewImageFromImage(dieImg)
 
 	return nil
 }
