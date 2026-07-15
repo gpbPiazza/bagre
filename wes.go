@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"image"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -39,15 +39,17 @@ type Wes struct {
 	velocity Vector2D
 	id       int
 
-	state int
+	state  int
+	logger *slog.Logger
 }
 
-func NewWes(id int) *Wes {
+func NewWes(id int, l *slog.Logger) *Wes {
 	w := &Wes{
 		position: Vector2D{x: screenWidth / 2, y: screenHeight / 2},
 		velocity: Vector2D{x: 1.0, y: 1.0},
 		id:       id,
 		state:    wesWalkState,
+		logger:   l,
 	}
 
 	wes = w
@@ -122,7 +124,7 @@ func (w *Wes) move() {
 		newPosition.y = 10
 	}
 
-	log.Println("WES position!", newPosition)
+	w.logger.Info("Wes position", "x", newPosition.x, "y", newPosition.y)
 
 	w.position = newPosition
 	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
