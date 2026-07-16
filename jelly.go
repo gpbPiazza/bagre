@@ -39,13 +39,13 @@ var (
 	jellyDeathImg *ebiten.Image
 )
 
-type jellyState int
+type unitState int
 
-func (js jellyState) String() string {
+func (js unitState) String() string {
 	switch js {
-	case jellyStateWalk:
+	case unitStateWalk:
 		return "walk"
-	case jellyStateDie:
+	case unitStateDead:
 		return "dead"
 	default:
 		return fmt.Sprintf("not mapped state - %d", js)
@@ -53,16 +53,16 @@ func (js jellyState) String() string {
 }
 
 const (
-	jellyStateWalk jellyState = iota
-	jellyStateAttack
-	jellyStateDie
+	unitStateWalk unitState = iota
+	unitStateAttack
+	unitStateDead
 )
 
 type JellyFish struct {
 	position Vector2D
 	velocity Vector2D
 	id       int
-	state    jellyState
+	state    unitState
 	logger   *slog.Logger
 }
 
@@ -71,7 +71,7 @@ func newJellyFish(id int, l *slog.Logger) *JellyFish {
 		position: Vector2D{x: rand.Float64() * screenWidth, y: rand.Float64() * screenHeight},
 		velocity: Vector2D{x: (rand.Float64() * 2) - 1.0, y: (rand.Float64() * 2) - 1.0},
 		id:       id,
-		state:    jellyStateWalk,
+		state:    unitStateWalk,
 		logger:   l,
 	}
 
@@ -82,9 +82,9 @@ func newJellyFish(id int, l *slog.Logger) *JellyFish {
 
 func (j *JellyFish) Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int) {
 	switch j.state {
-	case jellyStateWalk:
+	case unitStateWalk:
 		return jellyWalkImg, 5, 4
-	case wesDieState:
+	case unitStateDead:
 		return jellyDeathImg, 10, 6
 	default:
 		return jellyWalkImg, 5, 4
@@ -111,19 +111,15 @@ func (j *JellyFish) VecVelocity() Vector2D {
 	return j.velocity
 }
 
+// Die expected to the client lock and unlock the resources before be called
+// Die mutate the shared state.
 func (j *JellyFish) Die() {
-	j.logger.Info("Setting die state")
+	j.state = unitStateDead
 
-	j.state = jellyStateDie
-
-	rwLocker.Lock()
-	{
-		delete(units, j.id)
-		// isso aqui não espera animaçõa de morte acabar
-		// concorrencia -> tem gente lendo enquanto isso aqui mata
-		unitsByPositions[int(j.position.x)][int(j.position.y)] = -1
-	}
-	rwLocker.Unlock()
+	delete(units, j.id)
+	// isso aqui não espera animaçõa de morte acabar
+	// concorrencia -> tem gente lendo enquanto isso aqui mata
+	unitsByPositions[int(j.position.x)][int(j.position.y)] = -1
 }
 
 func (j *JellyFish) swim() {
@@ -175,6 +171,10 @@ func (j *JellyFish) calcAcceleration() Vector2D {
 			}
 
 			seenUnit := units[seenJellyFishID]
+			if seenUnit == nil {
+				j.logger.Info("jelly calcAcceleration seen nil unit")
+				continue
+			}
 
 			seenPosition := seenUnit.VecPosition()
 			seenVelocity := seenUnit.VecVelocity()
@@ -237,7 +237,7 @@ func (j *JellyFish) borderBounce(pos, border float64) float64 {
 }
 
 func (j *JellyFish) move() {
-	if j.state == jellyStateDie {
+	if j.state == unitStateDead {
 		return
 	}
 
@@ -278,7 +278,7 @@ func NewSmack(wes *Wes, logger *slog.Logger) {
 		}
 	}
 
-	for i := 0; i < jellysCount; i++ {
+	for i := range jellysCount {
 		jelly := newJellyFish(i, logger)
 		units[jelly.id] = jelly
 	}

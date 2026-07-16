@@ -18,6 +18,10 @@ func InitLogger() (*slog.Logger, closeFunc, error) {
 		closers  []closeFunc
 	)
 
+	// handlers = append(handlers, slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
+	// 	ReplaceAttr: replaceAttr,
+	// }))
+
 	handlers = append(handlers, tint.NewTextHandler(os.Stderr, &tint.Options{
 		ReplaceAttr: replaceAttr,
 	}))

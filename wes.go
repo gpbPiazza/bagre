@@ -30,18 +30,12 @@ var (
 // - ⁠wes perde se acabar o tempo
 // - ⁠antes do inimigo do wes aparecer, vai ter tartarugas, elas nao dao dano no wes mas elas comem os peixes dele, logo, ele fica menor. Ele compete com elas e elas empurram ele tomando stun
 
-const (
-	wesWalkState = iota
-	wesAttackState
-	wesDieState
-)
-
 type Wes struct {
 	position Vector2D
 	velocity Vector2D
 	id       int
 
-	state      int
+	state      unitState
 	logger     *slog.Logger
 	viewRadius float64
 }
@@ -51,7 +45,7 @@ func NewWes(id int, l *slog.Logger) *Wes {
 		position:   Vector2D{x: screenWidth / 2, y: screenHeight / 2},
 		velocity:   Vector2D{x: 1.0, y: 1.0},
 		id:         id,
-		state:      wesWalkState,
+		state:      unitStateWalk,
 		logger:     l,
 		viewRadius: 100,
 	}
@@ -63,9 +57,9 @@ func NewWes(id int, l *slog.Logger) *Wes {
 
 func (w *Wes) Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int) {
 	switch w.state {
-	case wesAttackState:
+	case unitStateAttack:
 		return attackWesImg, 3, 6
-	case wesWalkState:
+	case unitStateWalk:
 		return walkWesImg, 5, 4
 	default:
 		return walkWesImg, 5, 4
@@ -90,7 +84,7 @@ func (w *Wes) VecVelocity() Vector2D {
 
 func (w *Wes) Scale() (float64, float64) {
 	switch w.state {
-	case wesAttackState:
+	case unitStateAttack:
 		return 1.3, 1.3
 	default:
 		return 1, 1
@@ -134,7 +128,7 @@ func (w *Wes) move() {
 	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
 
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
-		w.state = wesWalkState
+		w.state = unitStateWalk
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
@@ -145,25 +139,24 @@ func (w *Wes) move() {
 func (w *Wes) Die() {}
 
 func (w *Wes) Attack() {
-	w.state = wesAttackState
+	w.state = unitStateAttack
 
 	upperView := w.position.AddVal(w.viewRadius)
 	lowerView := w.position.AddVal(-w.viewRadius)
 
+	var unitsEaten []Unit
 	// i -> x
 	// k -> y
+	rwLocker.RLock()
 	for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
 		for k := math.Max(lowerView.y, 0); k <= math.Min(upperView.y, screenHeight); k++ {
 			seenUnitID := unitsByPositions[int(i)][int(k)]
 			if seenUnitID == -1 || w.id == seenUnitID {
 				continue
 			}
-
 			seenUnit := units[seenUnitID]
 
-			// Panic aqui também durante o attacque
-			w.logger.Info("Wes guloso comeu", "unit", seenUnit.ID())
-			seenUnit.Die()
+			unitsEaten = append(unitsEaten, seenUnit)
 
 			// Pego o hit
 			// 1. jelly para de andar ok
@@ -174,7 +167,18 @@ func (w *Wes) Attack() {
 			// - como eu tiro a imagem da tela após terminar a animação? //
 		}
 	}
+	rwLocker.RUnlock()
 
+	rwLocker.Lock()
+	for _, u := range unitsEaten {
+		if u == nil {
+			w.logger.Info("getting nill unit")
+			continue
+		}
+
+		u.Die()
+	}
+	rwLocker.Unlock()
 }
 
 func loadWesImg() error {
