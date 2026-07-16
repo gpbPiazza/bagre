@@ -34,8 +34,7 @@ func initGame(l *slog.Logger) int {
 		return 1
 	}
 
-	wes = NewWes(jellysCount+2, l)
-	NewUnits(wes, l)
+	NewUnits(l)
 
 	s := NewGame()
 

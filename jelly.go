@@ -265,7 +265,9 @@ func (j *JellyFish) move() {
 	rwLocker.Unlock()
 }
 
-func NewUnits(wes *Wes, logger *slog.Logger) {
+func NewUnits(logger *slog.Logger) {
+	wes = NewWes(jellysCount+2, logger)
+
 	for i, row := range unitsByPositions {
 		for j := range row {
 			unitsByPositions[i][j] = -1
@@ -275,13 +277,11 @@ func NewUnits(wes *Wes, logger *slog.Logger) {
 	var jellies []*JellyFish
 	for i := range jellysCount {
 		jelly := newJellyFish(i, logger)
-		units[jelly.id] = jelly
-		jellies = append(jellies, jelly)
-	}
 
-	for _, jelly := range units {
-		x, y := jelly.Position()
-		unitsByPositions[int(x)][int(y)] = jelly.ID()
+		units[jelly.id] = jelly
+		unitsByPositions[int(jelly.position.x)][int(jelly.position.y)] = jelly.ID()
+
+		jellies = append(jellies, jelly)
 	}
 
 	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
