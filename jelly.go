@@ -75,8 +75,6 @@ func newJellyFish(id int, l *slog.Logger) *JellyFish {
 		logger:   l,
 	}
 
-	go b.swim()
-
 	return b
 }
 
@@ -171,11 +169,6 @@ func (j *JellyFish) calcAcceleration() Vector2D {
 			}
 
 			seenUnit := units[seenJellyFishID]
-			if seenUnit == nil {
-				j.logger.Info("jelly calcAcceleration seen nil unit")
-				continue
-			}
-
 			seenPosition := seenUnit.VecPosition()
 			seenVelocity := seenUnit.VecVelocity()
 
@@ -237,16 +230,17 @@ func (j *JellyFish) borderBounce(pos, border float64) float64 {
 }
 
 func (j *JellyFish) move() {
-	if j.state == unitStateDead {
-		return
-	}
-
 	minSpeed := 0.5
 	maxSpeed := 1.5
 
 	accel := j.calcAcceleration()
 
 	rwLocker.Lock()
+	if _, alive := units[j.id]; !alive {
+		rwLocker.Unlock()
+		return
+	}
+
 	{
 		j.velocity = j.velocity.Add(accel)
 
@@ -271,16 +265,18 @@ func (j *JellyFish) move() {
 	rwLocker.Unlock()
 }
 
-func NewSmack(wes *Wes, logger *slog.Logger) {
+func NewUnits(wes *Wes, logger *slog.Logger) {
 	for i, row := range unitsByPositions {
 		for j := range row {
 			unitsByPositions[i][j] = -1
 		}
 	}
 
+	var jellies []*JellyFish
 	for i := range jellysCount {
 		jelly := newJellyFish(i, logger)
 		units[jelly.id] = jelly
+		jellies = append(jellies, jelly)
 	}
 
 	for _, jelly := range units {
@@ -290,6 +286,10 @@ func NewSmack(wes *Wes, logger *slog.Logger) {
 
 	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
 	units[wes.id] = wes
+
+	for _, j := range jellies {
+		go j.swim()
+	}
 }
 
 func loadJellyImg() error {

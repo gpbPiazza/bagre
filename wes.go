@@ -124,8 +124,13 @@ func (w *Wes) move() {
 
 	// w.logger.Info("Wes position", "x", newPosition.x, "y", newPosition.y)
 
-	w.position = newPosition
-	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
+	rwLocker.Lock()
+	{
+		unitsByPositions[int(wes.position.x)][int(wes.position.y)] = -1
+		w.position = newPosition
+		unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
+	}
+	rwLocker.Unlock()
 
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
 		w.state = unitStateWalk
@@ -171,11 +176,6 @@ func (w *Wes) Attack() {
 
 	rwLocker.Lock()
 	for _, u := range unitsEaten {
-		if u == nil {
-			w.logger.Info("getting nill unit")
-			continue
-		}
-
 		u.Die()
 	}
 	rwLocker.Unlock()
