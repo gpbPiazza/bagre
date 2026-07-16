@@ -3,8 +3,10 @@ package main
 import (
 	"image"
 	"image/color"
+	"log/slog"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 const (
@@ -19,20 +21,43 @@ type Game struct {
 	ScreenWidth  int
 	ScreenHeight int
 	tick         int // grows by 1 every Update (~60/sec); our clock for animation
+	units        gameUnits
 }
 
-func NewGame() *Game {
+func NewGame(gUnits gameUnits) *Game {
 	return &Game{
 		ScreenWidth:  screenWidth,
 		ScreenHeight: screenHeight,
+		units:        gUnits,
 	}
 }
 
+// Update archtecture move, we always calculate first what will happend
+// then we write.
 func (g *Game) Update() error {
 	g.tick++
 
-	wes.move()
+	g.units.wes.move()
 
+	for _, j := range g.units.smack {
+		j.nextMove()
+	}
+	for _, j := range g.units.smack {
+		j.writeMove()
+	}
+
+	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
+		g.units.wes.state = unitStateWalk
+	}
+	var unitsEaten []Unit
+	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		unitsEaten = g.units.wes.Attack()
+	}
+	for _, u := range unitsEaten {
+		u.Die()
+	}
+
+	rebuildGrid()
 	return nil
 }
 
@@ -41,6 +66,37 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	for _, u := range units {
 		drawUnit(screen, u, g.tick)
+	}
+}
+
+type gameUnits struct {
+	wes   *Wes
+	smack []*JellyFish
+}
+
+func NewUnits(logger *slog.Logger) gameUnits {
+	wes := NewWes(jellysCount+2, logger)
+
+	for i, row := range unitsByPositions {
+		for j := range row {
+			unitsByPositions[i][j] = -1
+		}
+	}
+
+	var smack []*JellyFish
+	for i := range jellysCount {
+		jelly := newJellyFish(i, logger)
+
+		units[jelly.id] = jelly
+		unitsByPositions[int(jelly.position.x)][int(jelly.position.y)] = jelly.ID()
+		smack = append(smack, jelly)
+	}
+
+	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
+	units[wes.id] = wes
+
+	return gameUnits{
+		wes, smack,
 	}
 }
 
@@ -58,6 +114,7 @@ type Unit interface {
 	ID() int
 
 	Die()
+	IsPlayer() bool
 }
 
 func drawUnit(screen *ebiten.Image, unit Unit, tick int) {
@@ -105,4 +162,17 @@ func calcFrame(img image.Image, frameCount int) (width, height int) {
 
 func (g *Game) Layout(_, _ int) (int, int) {
 	return g.ScreenWidth, g.ScreenHeight
+}
+
+func rebuildGrid() {
+	for i := range unitsByPositions {
+		for k := range unitsByPositions[i] {
+			unitsByPositions[i][k] = -1
+		}
+	}
+
+	for id, u := range units {
+		p := u.VecPosition()
+		unitsByPositions[int(p.x)][int(p.y)] = id
+	}
 }

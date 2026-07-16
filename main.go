@@ -34,9 +34,8 @@ func initGame(l *slog.Logger) int {
 		return 1
 	}
 
-	NewUnits(l)
-
-	s := NewGame()
+	gUnits := NewUnits(l)
+	s := NewGame(gUnits)
 
 	ebiten.SetWindowSize(s.ScreenWidth, s.ScreenWidth)
 	ebiten.SetWindowTitle("Wes bagre")

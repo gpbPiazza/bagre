@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 var (
@@ -49,9 +48,6 @@ func NewWes(id int, l *slog.Logger) *Wes {
 		logger:     l,
 		viewRadius: 100,
 	}
-
-	wes = w
-
 	return w
 }
 
@@ -122,37 +118,21 @@ func (w *Wes) move() {
 		newPosition.y = 10
 	}
 
-	// w.logger.Info("Wes position", "x", newPosition.x, "y", newPosition.y)
+	w.position = newPosition
 
-	rwLocker.Lock()
-	{
-		unitsByPositions[int(wes.position.x)][int(wes.position.y)] = -1
-		w.position = newPosition
-		unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
-	}
-	rwLocker.Unlock()
-
-	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
-		w.state = unitStateWalk
-	}
-
-	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		w.Attack()
-	}
 }
 
 func (w *Wes) Die() {}
 
-func (w *Wes) Attack() {
+func (w *Wes) IsPlayer() bool { return true }
+
+func (w *Wes) Attack() []Unit {
 	w.state = unitStateAttack
 
 	upperView := w.position.AddVal(w.viewRadius)
 	lowerView := w.position.AddVal(-w.viewRadius)
 
 	var unitsEaten []Unit
-	// i -> x
-	// k -> y
-	rwLocker.RLock()
 	for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
 		for k := math.Max(lowerView.y, 0); k <= math.Min(upperView.y, screenHeight); k++ {
 			seenUnitID := unitsByPositions[int(i)][int(k)]
@@ -162,23 +142,10 @@ func (w *Wes) Attack() {
 			seenUnit := units[seenUnitID]
 
 			unitsEaten = append(unitsEaten, seenUnit)
-
-			// Pego o hit
-			// 1. jelly para de andar ok
-			// 2. animação de morte ok
-			//
-			// 3. ela não existe mais no game inprogress
-			// - outras jellies não consideram a positição de jelliues mortas na conta // todo resolver isso dps
-			// - como eu tiro a imagem da tela após terminar a animação? //
 		}
 	}
-	rwLocker.RUnlock()
 
-	rwLocker.Lock()
-	for _, u := range unitsEaten {
-		u.Die()
-	}
-	rwLocker.Unlock()
+	return unitsEaten
 }
 
 func loadWesImg() error {

@@ -8,9 +8,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"runtime/debug"
 	"sync"
-	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -33,7 +31,6 @@ var (
 	unitsByPositions = [screenWidth + 1][screenHeight + 1]int{}
 	// units is the collective noun for jellyFish
 	units         = make(map[int]Unit, 0)
-	wes           *Wes
 	rwLocker      = sync.RWMutex{}
 	jellyWalkImg  *ebiten.Image
 	jellyDeathImg *ebiten.Image
@@ -59,11 +56,14 @@ const (
 )
 
 type JellyFish struct {
-	position Vector2D
-	velocity Vector2D
-	id       int
-	state    unitState
-	logger   *slog.Logger
+	position     Vector2D
+	velocity     Vector2D
+	nextPosition Vector2D
+	nextVelocity Vector2D
+
+	id     int
+	state  unitState
+	logger *slog.Logger
 }
 
 func newJellyFish(id int, l *slog.Logger) *JellyFish {
@@ -74,6 +74,8 @@ func newJellyFish(id int, l *slog.Logger) *JellyFish {
 		state:    unitStateWalk,
 		logger:   l,
 	}
+	b.nextVelocity = b.velocity
+	b.nextPosition = b.position
 
 	return b
 }
@@ -120,27 +122,7 @@ func (j *JellyFish) Die() {
 	unitsByPositions[int(j.position.x)][int(j.position.y)] = -1
 }
 
-func (j *JellyFish) swim() {
-	defer func() {
-		got := recover()
-		if got == nil {
-			return
-		}
-		j.logger.Error("jelly panic",
-			"jelly_id", j.id,
-			"jelly_state", j.state.String(),
-			"panic", got,
-			"stack", string(debug.Stack()),
-		)
-	}()
-
-	for {
-		j.move()
-		time.Sleep(5 * time.Millisecond)
-	}
-}
-
-// The behavior you actually want
+// // The behavior you actually want
 //
 // "Come together, keep moving, separate, re-form" = a living school. That requires:
 //
@@ -159,20 +141,19 @@ func (j *JellyFish) calcAcceleration() Vector2D {
 	jellysCount := 0.0
 	wesSeen := false
 
-	rwLocker.RLock()
 	for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
 		for k := math.Max(lowerView.y, 0); k <= math.Min(upperView.y, screenHeight); k++ {
-			seenJellyFishID := unitsByPositions[int(i)][int(k)]
+			seenUnitID := unitsByPositions[int(i)][int(k)]
 
-			if seenJellyFishID == -1 || j.id == seenJellyFishID {
+			if seenUnitID == -1 || j.id == seenUnitID {
 				continue
 			}
 
-			seenUnit := units[seenJellyFishID]
+			seenUnit := units[seenUnitID]
 			seenPosition := seenUnit.VecPosition()
 			seenVelocity := seenUnit.VecVelocity()
 
-			if seenJellyFishID == wes.id {
+			if seenUnit.IsPlayer() {
 				wesSeen = true
 				dist := seenPosition.Distance(j.position)
 				separation := j.position.Subtract(seenPosition).DivisionVal(dist - dist/2) // push aways too close
@@ -189,7 +170,6 @@ func (j *JellyFish) calcAcceleration() Vector2D {
 			}
 		}
 	}
-	rwLocker.RUnlock()
 
 	borderBounceX := j.borderBounce(j.position.x, screenWidth)
 	borderBouncey := j.borderBounce(j.position.y, screenHeight)
@@ -229,67 +209,30 @@ func (j *JellyFish) borderBounce(pos, border float64) float64 {
 	return 0
 }
 
-func (j *JellyFish) move() {
+func (j *JellyFish) IsPlayer() bool {
+	return false
+}
+
+func (j *JellyFish) nextMove() {
 	minSpeed := 0.5
 	maxSpeed := 1.5
 
 	accel := j.calcAcceleration()
 
-	rwLocker.Lock()
-	if _, alive := units[j.id]; !alive {
-		rwLocker.Unlock()
-		return
+	j.nextVelocity = j.velocity.Add(accel)
+
+	// Cruising speed: only change the LENGTH of velocity, never its direction.
+	// Floor (minSpeed) = never stall into a frozen blob.
+	// Ceiling (maxSpeed) = never blast off across the screen.
+	velocityMag := j.nextVelocity.Pythagoras()
+	if velocityMag < minSpeed {
+		j.nextVelocity = j.nextVelocity.ScaleToLength(minSpeed)
+	}
+	if velocityMag > maxSpeed {
+		j.nextVelocity = j.nextVelocity.ScaleToLength(maxSpeed)
 	}
 
-	{
-		j.velocity = j.velocity.Add(accel)
-
-		// Cruising speed: only change the LENGTH of velocity, never its direction.
-		// Floor (minSpeed) = never stall into a frozen blob.
-		// Ceiling (maxSpeed) = never blast off across the screen.
-		velocityMag := j.velocityMagnitude()
-		if velocityMag < minSpeed {
-			j.velocity = j.velocity.ScaleToLength(minSpeed)
-		}
-		if velocityMag > maxSpeed {
-			j.velocity = j.velocity.ScaleToLength(maxSpeed)
-		}
-
-		//set the current position to -1, empty space
-		unitsByPositions[int(j.position.x)][int(j.position.y)] = -1
-		// move
-		j.position = j.position.Add(j.velocity)
-		// fill the new position into the map
-		unitsByPositions[int(j.position.x)][int(j.position.y)] = j.id
-	}
-	rwLocker.Unlock()
-}
-
-func NewUnits(logger *slog.Logger) {
-	wes = NewWes(jellysCount+2, logger)
-
-	for i, row := range unitsByPositions {
-		for j := range row {
-			unitsByPositions[i][j] = -1
-		}
-	}
-
-	var jellies []*JellyFish
-	for i := range jellysCount {
-		jelly := newJellyFish(i, logger)
-
-		units[jelly.id] = jelly
-		unitsByPositions[int(jelly.position.x)][int(jelly.position.y)] = jelly.ID()
-
-		jellies = append(jellies, jelly)
-	}
-
-	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
-	units[wes.id] = wes
-
-	for _, j := range jellies {
-		go j.swim()
-	}
+	j.nextPosition = j.position.Add(j.nextVelocity)
 }
 
 func loadJellyImg() error {
@@ -297,6 +240,7 @@ func loadJellyImg() error {
 	if err != nil {
 		return err
 	}
+
 	jellyImg, _, err := image.Decode(bytes.NewReader(jellyBytesPng))
 	if err != nil {
 		return err
@@ -316,6 +260,7 @@ func loadJellyImg() error {
 	return nil
 }
 
-func (j *JellyFish) velocityMagnitude() float64 {
-	return j.velocity.Pythagoras()
+func (j *JellyFish) writeMove() {
+	j.position = j.nextPosition
+	j.velocity = j.nextVelocity
 }
