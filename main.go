@@ -34,12 +34,17 @@ func initGame(l *slog.Logger) int {
 		return 1
 	}
 
-	gUnits := NewUnits(l)
-	s := NewGame(gUnits)
+	eventManager := NewEventManager()
 
-	ebiten.SetWindowSize(s.ScreenWidth, s.ScreenWidth)
+	gUnits := NewUnits(eventManager, l)
+
+	game := NewGame(len(units)+5, gUnits, eventManager)
+
+	eventManager.subscribe(removeUnit, game)
+
+	ebiten.SetWindowSize(game.ScreenWidth, game.ScreenWidth)
 	ebiten.SetWindowTitle("Wes bagre")
-	if err := ebiten.RunGame(s); err != nil {
+	if err := ebiten.RunGame(game); err != nil {
 		l.Error("failed to run game", log.Err(err))
 		return 1
 	}

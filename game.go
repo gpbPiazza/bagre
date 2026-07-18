@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"log/slog"
@@ -18,28 +19,59 @@ var (
 )
 
 type Game struct {
-	ScreenWidth  int
-	ScreenHeight int
-	tick         int // grows by 1 every Update (~60/sec); our clock for animation
-	units        gameUnits
+	ScreenWidth   int
+	ScreenHeight  int
+	tick          int // grows by 1 every Update (~60/sec); our clock for animation
+	id            int
+	units         gameUnits
+	evenetManager *EventManager
 }
 
-func NewGame(gUnits gameUnits) *Game {
+func NewGame(id int, gUnits gameUnits, evenEventManager *EventManager) *Game {
 	return &Game{
-		ScreenWidth:  screenWidth,
-		ScreenHeight: screenHeight,
-		units:        gUnits,
+		ScreenWidth:   screenWidth,
+		ScreenHeight:  screenHeight,
+		units:         gUnits,
+		evenetManager: evenEventManager,
+		id:            id,
 	}
+}
+
+func (g *Game) ID() int {
+	return g.id
 }
 
 // Update archtecture move, we always calculate first what will happend
 // then we write.
+//
+// KNOWN ISSUES / TODO (deferred, none block running):
+//
+//  1. Dead mutex leftover: rwLocker (jelly.go:34) + the sync import have zero
+//     usages now that everything runs on this single goroutine. It only compiles
+//     because Go tolerates unused package-level vars. Delete both to finish the
+//     no-locking migration.
+//
+//  2. Dead jellies are never removed from g.units.smack. On Die() a jelly is
+//     deleted from the units map but stays in the smack slice, so it keeps
+//     running nextMove/writeMove every tick. It's invisible (not in units, so
+//     not drawn or gridded), just wasted work that grows as more die. TODO:
+//     prune eaten jellies out of the smack slice (and until then, skip them with
+//     `if j.state == unitStateDead { continue }` in both loops below). Same gap
+//     that blocks the death-animation TODO.
+//
+//  3. Attack ordering (not a bug): Attack() runs AFTER the jellies commit this
+//     tick's move (writeMove) but reads the grid from LAST tick's rebuildGrid, so
+//     wes eats based on where jellies were ~1 tick ago (~1.5px off from where
+//     they're drawn). Negligible at 60fps and safe (no nil, since rebuildGrid
+//     runs after Die). Side effect: Die()'s grid-clear (jelly.go:120) is now
+//     redundant because rebuildGrid always runs before any reader sees the grid.
 func (g *Game) Update() error {
 	g.tick++
 
 	g.units.wes.move()
 
 	for _, j := range g.units.smack {
+		j.checkState(g.tick)
 		j.nextMove()
 	}
 	for _, j := range g.units.smack {
@@ -49,12 +81,13 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
 		g.units.wes.state = unitStateWalk
 	}
+
 	var unitsEaten []Unit
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		unitsEaten = g.units.wes.Attack()
 	}
 	for _, u := range unitsEaten {
-		u.Die()
+		u.Die(g.tick)
 	}
 
 	rebuildGrid()
@@ -69,12 +102,43 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 }
 
+func (g *Game) Subscribe(et EventType, payload any) {
+	switch et {
+	case removeUnit:
+		u, ok := payload.(Unit)
+		if !ok {
+			fmt.Println("Não é uma unit no remove unit event")
+			return
+		}
+
+		delete(units, u.ID())
+		position := u.VecPosition()
+		unitsByPositions[int(position.x)][int(position.y)] = -1
+
+		lastIndex := len(g.units.smack) - 1
+		smack := g.units.smack
+		var newSmack []*JellyFish
+		for i, jelly := range g.units.smack {
+			if jelly.ID() == u.ID() {
+				smack[i] = smack[lastIndex]
+				smack[lastIndex] = smack[i]
+				newSmack = smack[:lastIndex]
+				break
+			}
+		}
+		g.units.smack = newSmack
+
+	default:
+		return
+	}
+}
+
 type gameUnits struct {
 	wes   *Wes
 	smack []*JellyFish
 }
 
-func NewUnits(logger *slog.Logger) gameUnits {
+func NewUnits(eventManager *EventManager, logger *slog.Logger) gameUnits {
 	wes := NewWes(jellysCount+2, logger)
 
 	for i, row := range unitsByPositions {
@@ -85,7 +149,7 @@ func NewUnits(logger *slog.Logger) gameUnits {
 
 	var smack []*JellyFish
 	for i := range jellysCount {
-		jelly := newJellyFish(i, logger)
+		jelly := newJellyFish(i, logger, eventManager)
 
 		units[jelly.id] = jelly
 		unitsByPositions[int(jelly.position.x)][int(jelly.position.y)] = jelly.ID()
@@ -103,17 +167,20 @@ func NewUnits(logger *slog.Logger) gameUnits {
 type Unit interface {
 	// Draw return every property needed to propertly draw a unit
 	// Draw itself dont draw the unit. just return data
-	Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int)
+	Draw() (img *ebiten.Image, ticksWhenDead int, tickCountPerPose int, frameCount int)
 
 	Scale() (float64, float64)
 
 	Position() (float64, float64)
 
 	VecVelocity() Vector2D
+
 	VecPosition() Vector2D
+
 	ID() int
 
-	Die()
+	Die(tick int)
+
 	IsPlayer() bool
 }
 
@@ -121,7 +188,7 @@ func drawUnit(screen *ebiten.Image, unit Unit, tick int) {
 	frameOX := 0 // frames start at the left edge
 	frameOY := 0 // ...and at the top edge (single row)
 
-	img, tickCountPerPose, frameCount := unit.Draw()
+	img, tickesWhenDead, tickCountPerPose, frameCount := unit.Draw()
 
 	frameWidth, frameHeight := calcFrame(img, frameCount)
 
@@ -134,6 +201,10 @@ func drawUnit(screen *ebiten.Image, unit Unit, tick int) {
 	// tick/5  -> hold each pose for 5 ticks (~12fps instead of 60)
 	// % frameCount -> loop back to frame 0 after the last frame (0..7)
 	i := (tick / tickCountPerPose) % frameCount
+	if tickesWhenDead != 0 {
+		elapsed := tick - tickesWhenDead
+		i = min(elapsed/tickCountPerPose, frameCount-1)
+	}
 
 	sx, sy := frameOX+i*frameWidth, frameOY
 

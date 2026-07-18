@@ -51,14 +51,14 @@ func NewWes(id int, l *slog.Logger) *Wes {
 	return w
 }
 
-func (w *Wes) Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int) {
+func (w *Wes) Draw() (img *ebiten.Image, tickesWhenDead, tickCountPerPose int, frameCount int) {
 	switch w.state {
 	case unitStateAttack:
-		return attackWesImg, 3, 6
+		return attackWesImg, 0, 3, 6
 	case unitStateWalk:
-		return walkWesImg, 5, 4
+		return walkWesImg, 0, 5, 4
 	default:
-		return walkWesImg, 5, 4
+		return walkWesImg, 0, 5, 4
 	}
 }
 
@@ -122,7 +122,7 @@ func (w *Wes) move() {
 
 }
 
-func (w *Wes) Die() {}
+func (w *Wes) Die(tick int) {}
 
 func (w *Wes) IsPlayer() bool { return true }
 

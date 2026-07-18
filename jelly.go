@@ -61,18 +61,21 @@ type JellyFish struct {
 	nextPosition Vector2D
 	nextVelocity Vector2D
 
-	id     int
-	state  unitState
-	logger *slog.Logger
+	tickWhenDied, id int
+	state            unitState
+	logger           *slog.Logger
+	events           *EventManager
 }
 
-func newJellyFish(id int, l *slog.Logger) *JellyFish {
+func newJellyFish(id int, l *slog.Logger, e *EventManager) *JellyFish {
 	b := &JellyFish{
-		position: Vector2D{x: rand.Float64() * screenWidth, y: rand.Float64() * screenHeight},
-		velocity: Vector2D{x: (rand.Float64() * 2) - 1.0, y: (rand.Float64() * 2) - 1.0},
-		id:       id,
-		state:    unitStateWalk,
-		logger:   l,
+		position:     Vector2D{x: rand.Float64() * screenWidth, y: rand.Float64() * screenHeight},
+		velocity:     Vector2D{x: (rand.Float64() * 2) - 1.0, y: (rand.Float64() * 2) - 1.0},
+		id:           id,
+		state:        unitStateWalk,
+		logger:       l,
+		tickWhenDied: 0,
+		events:       e,
 	}
 	b.nextVelocity = b.velocity
 	b.nextPosition = b.position
@@ -80,14 +83,14 @@ func newJellyFish(id int, l *slog.Logger) *JellyFish {
 	return b
 }
 
-func (j *JellyFish) Draw() (img *ebiten.Image, tickCountPerPose int, frameCount int) {
+func (j *JellyFish) Draw() (img *ebiten.Image, ticksWhenDead, tickCountPerPose int, frameCount int) {
 	switch j.state {
 	case unitStateWalk:
-		return jellyWalkImg, 5, 4
+		return jellyWalkImg, 0, 5, 4
 	case unitStateDead:
-		return jellyDeathImg, 10, 6
+		return jellyDeathImg, j.tickWhenDied, 10, 6
 	default:
-		return jellyWalkImg, 5, 4
+		return jellyWalkImg, 0, 5, 4
 	}
 }
 
@@ -111,15 +114,30 @@ func (j *JellyFish) VecVelocity() Vector2D {
 	return j.velocity
 }
 
-// Die expected to the client lock and unlock the resources before be called
-// Die mutate the shared state.
-func (j *JellyFish) Die() {
-	j.state = unitStateDead
+func (j *JellyFish) checkState(tick int) {
+	switch j.state {
+	case unitStateWalk:
+		return
+	case unitStateDead:
+		_, _, tickCountPerFrame, frameCount := j.Draw()
+		howLongItLast := tickCountPerFrame * frameCount
+		// 10 * 6 -> 60 -> animataçõa demora 60 ticks para terminar
+		elapsed := tick - j.tickWhenDied
+		// elapsed for menor ou igual ao fim da animação, significa que ja acabou
 
-	delete(units, j.id)
-	// isso aqui não espera animaçõa de morte acabar
-	// concorrencia -> tem gente lendo enquanto isso aqui mata
-	unitsByPositions[int(j.position.x)][int(j.position.y)] = -1
+		if elapsed >= howLongItLast {
+			j.events.Publish(removeUnit, j)
+		}
+
+	default:
+		return
+	}
+
+}
+
+func (j *JellyFish) Die(tick int) {
+	j.tickWhenDied = tick
+	j.state = unitStateDead
 }
 
 // // The behavior you actually want
@@ -214,6 +232,10 @@ func (j *JellyFish) IsPlayer() bool {
 }
 
 func (j *JellyFish) nextMove() {
+	if j.state == unitStateDead {
+		return
+	}
+
 	minSpeed := 0.5
 	maxSpeed := 1.5
 
