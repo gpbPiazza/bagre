@@ -83,6 +83,23 @@ func NewUnits(eventManager *EventManager, logger *slog.Logger) Units {
 	}
 }
 
+func checkState(u Unit, tick int, events *EventManager) {
+	switch u.State() {
+	case unitStateDead:
+		_, ticksWhenDead, tickCountPerFrame, frameCount := u.Draw()
+		howLongItLast := tickCountPerFrame * frameCount
+		// 10 * 6 -> 60 -> animataçõa demora 60 ticks para terminar
+		elapsed := tick - ticksWhenDead
+		// elapsed for menor ou igual ao fim da animação, significa que ja acabou
+
+		if elapsed >= howLongItLast {
+			events.Publish(removeUnit, u)
+		}
+	default:
+		return
+	}
+}
+
 func drawUnit(screen *ebiten.Image, unit Unit, tick int) {
 	frameOX := 0 // frames start at the left edge
 	frameOY := 0 // ...and at the top edge (single row)

@@ -20,23 +20,17 @@ type Game struct {
 	ScreenWidth   int
 	ScreenHeight  int
 	tick          int // grows by 1 every Update (~60/sec); our clock for animation
-	id            int
 	units         Units
 	evenetManager *EventManager
 }
 
-func NewGame(id int, gUnits Units, evenEventManager *EventManager) *Game {
+func NewGame(gUnits Units, evenEventManager *EventManager) *Game {
 	return &Game{
 		ScreenWidth:   screenWidth,
 		ScreenHeight:  screenHeight,
 		units:         gUnits,
 		evenetManager: evenEventManager,
-		id:            id,
 	}
-}
-
-func (g *Game) ID() int {
-	return g.id
 }
 
 func (g *Game) Update() error {
@@ -78,23 +72,28 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 }
 
-func (g *Game) Subscribe(et EventType, payload any) {
+func (g *Game) Handle(et EventType, payload any) {
 	switch et {
 	case removeUnit:
-		u, ok := payload.(Unit)
-		if !ok {
-			panic("tu ta fazendo merda gabriel")
-		}
-
-		delete(units, u.ID())
-		position := u.VecPosition()
-		unitsByPositions[int(position.x)][int(position.y)] = -1
-		g.units.smack = slices.DeleteFunc(g.units.smack, func(e *JellyFish) bool {
-			return e.ID() == u.ID()
-		})
+		g.handleRemoveUnit(et, payload)
 	default:
 		return
 	}
+}
+
+func (g *Game) handleRemoveUnit(et EventType, payload any) {
+	u, ok := payload.(Unit)
+	if !ok {
+		panic("tu ta fazendo merda gabriel")
+	}
+
+	delete(units, u.ID())
+	position := u.VecPosition()
+	unitsByPositions[int(position.x)][int(position.y)] = -1
+	g.units.smack = slices.DeleteFunc(g.units.smack, func(e *JellyFish) bool {
+		return e.ID() == u.ID()
+	})
+
 }
 
 func (g *Game) Layout(_, _ int) (int, int) {

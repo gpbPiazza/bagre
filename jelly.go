@@ -97,23 +97,6 @@ func (j *JellyFish) State() unitState {
 	return j.state
 }
 
-func checkState(u Unit, tick int, events *EventManager) {
-	switch u.State() {
-	case unitStateDead:
-		_, ticksWhenDead, tickCountPerFrame, frameCount := u.Draw()
-		howLongItLast := tickCountPerFrame * frameCount
-		// 10 * 6 -> 60 -> animataçõa demora 60 ticks para terminar
-		elapsed := tick - ticksWhenDead
-		// elapsed for menor ou igual ao fim da animação, significa que ja acabou
-
-		if elapsed >= howLongItLast {
-			events.Publish(removeUnit, u)
-		}
-	default:
-		return
-	}
-}
-
 func (j *JellyFish) Die(tick int) {
 	if j.state == unitStateDead {
 		return

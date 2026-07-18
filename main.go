@@ -38,7 +38,7 @@ func initGame(l *slog.Logger) int {
 
 	gUnits := NewUnits(eventManager, l)
 
-	game := NewGame(len(units)+5, gUnits, eventManager)
+	game := NewGame(gUnits, eventManager)
 
 	eventManager.subscribe(removeUnit, game)
 
