@@ -2,13 +2,11 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"image"
 	"log/slog"
 	"math"
 	"math/rand"
 	"os"
-	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -30,29 +28,10 @@ const (
 var (
 	unitsByPositions = [screenWidth + 1][screenHeight + 1]int{}
 	// units is the collective noun for jellyFish
-	units         = make(map[int]Unit, 0)
-	rwLocker      = sync.RWMutex{}
+	units = make(map[int]Unit, 0)
+
 	jellyWalkImg  *ebiten.Image
 	jellyDeathImg *ebiten.Image
-)
-
-type unitState int
-
-func (js unitState) String() string {
-	switch js {
-	case unitStateWalk:
-		return "walk"
-	case unitStateDead:
-		return "dead"
-	default:
-		return fmt.Sprintf("not mapped state - %d", js)
-	}
-}
-
-const (
-	unitStateWalk unitState = iota
-	unitStateAttack
-	unitStateDead
 )
 
 type JellyFish struct {
@@ -114,28 +93,32 @@ func (j *JellyFish) VecVelocity() Vector2D {
 	return j.velocity
 }
 
-func (j *JellyFish) checkState(tick int) {
-	switch j.state {
-	case unitStateWalk:
-		return
+func (j *JellyFish) State() unitState {
+	return j.state
+}
+
+func checkState(u Unit, tick int, events *EventManager) {
+	switch u.State() {
 	case unitStateDead:
-		_, _, tickCountPerFrame, frameCount := j.Draw()
+		_, ticksWhenDead, tickCountPerFrame, frameCount := u.Draw()
 		howLongItLast := tickCountPerFrame * frameCount
 		// 10 * 6 -> 60 -> animataçõa demora 60 ticks para terminar
-		elapsed := tick - j.tickWhenDied
+		elapsed := tick - ticksWhenDead
 		// elapsed for menor ou igual ao fim da animação, significa que ja acabou
 
 		if elapsed >= howLongItLast {
-			j.events.Publish(removeUnit, j)
+			events.Publish(removeUnit, u)
 		}
-
 	default:
 		return
 	}
-
 }
 
 func (j *JellyFish) Die(tick int) {
+	if j.state == unitStateDead {
+		return
+	}
+
 	j.tickWhenDied = tick
 	j.state = unitStateDead
 }

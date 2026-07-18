@@ -66,6 +66,10 @@ func (w *Wes) Position() (float64, float64) {
 	return w.position.x, w.position.y
 }
 
+func (w *Wes) State() unitState {
+	return w.state
+}
+
 func (w *Wes) VecPosition() Vector2D {
 	return w.position
 }

@@ -35,16 +35,3 @@ func (a *EventManager) Publish(et EventType, payload any) {
 func (a *EventManager) subscribe(eventType EventType, l Listener) {
 	a.listByEventType[eventType] = append(a.listByEventType[eventType], l)
 }
-
-func (a *EventManager) unsubscribe(eventType EventType, list Listener) {
-	listeners := a.listByEventType[eventType]
-	lenList := len(listeners)
-	lastIndex := lenList - 1
-
-	for i, l := range listeners {
-		if l.ID() == list.ID() {
-			listeners[lastIndex], listeners[i] = listeners[i], listeners[lastIndex]
-			a.listByEventType[eventType] = listeners[:lastIndex]
-		}
-	}
-}
