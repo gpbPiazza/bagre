@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 	"slices"
 
@@ -46,10 +47,11 @@ func (g *Game) Update() error {
 	}
 
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
-		g.units.wes.state = unitStateWalk
+		fmt.Println("RELEASED SPACE")
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		fmt.Println("HITTED SPACE")
 		g.units.unitsEaten = append(g.units.unitsEaten, g.units.wes.Attack()...)
 	}
 
@@ -70,18 +72,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for _, u := range units {
 		drawUnit(screen, u, g.tick)
 	}
+
+	// TEMP: visualize Wes's attack hitbox. Delete when done debugging.
+	g.units.wes.DrawAttackHitBox(screen)
 }
 
 func (g *Game) Handle(et EventType, payload any) {
 	switch et {
 	case removeUnit:
-		g.handleRemoveUnit(et, payload)
+		g.handleRemoveUnit(payload)
 	default:
 		return
 	}
 }
 
-func (g *Game) handleRemoveUnit(et EventType, payload any) {
+func (g *Game) handleRemoveUnit(payload any) {
 	u, ok := payload.(Unit)
 	if !ok {
 		panic("tu ta fazendo merda gabriel")
