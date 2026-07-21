@@ -167,7 +167,7 @@ func (w *Wes) Attack(tick int) []Unit {
 	var unitsEaten []Unit
 	newX0 := cx
 	for k := math.Min(cy, screenHeight); k >= math.Max(ay, 0); k-- {
-		for i := math.Max(newX0, 0); i <= math.Min(ay, screenWidth); i++ {
+		for i := math.Max(newX0, 0); i <= math.Min(ax, screenWidth); i++ {
 			seenUnitID := unitsByPositions[int(i)][int(k)]
 
 			if seenUnitID == -1 || w.id == seenUnitID {
