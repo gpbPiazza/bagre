@@ -9,6 +9,7 @@ type EventType int
 const (
 	animationEnded EventType = iota
 	removeUnit
+	attackAnimationEnded
 )
 
 type EventManager struct {

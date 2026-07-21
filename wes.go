@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"image"
 	"image/color"
 	"log/slog"
@@ -37,9 +36,10 @@ var (
 // - ⁠antes do inimigo do wes aparecer, vai ter tartarugas, elas nao dao dano no wes mas elas comem os peixes dele, logo, ele fica menor. Ele compete com elas e elas empurram ele tomando stun
 
 type Wes struct {
-	position Vector2D
-	velocity Vector2D
-	id       int
+	position              Vector2D
+	velocity              Vector2D
+	id                    int
+	tickesWhenAttackState int
 
 	state  unitState
 	logger *slog.Logger
@@ -47,19 +47,20 @@ type Wes struct {
 
 func NewWes(id int, l *slog.Logger) *Wes {
 	w := &Wes{
-		position: Vector2D{x: screenWidth / 2, y: screenHeight / 2},
-		velocity: Vector2D{x: 1.0, y: 1.0},
-		id:       id,
-		state:    unitStateWalk,
-		logger:   l,
+		position:              Vector2D{x: screenWidth / 2, y: screenHeight / 2},
+		velocity:              Vector2D{x: 1.0, y: 1.0},
+		id:                    id,
+		tickesWhenAttackState: 0,
+		state:                 unitStateWalk,
+		logger:                l,
 	}
 	return w
 }
 
-func (w *Wes) Draw() (img *ebiten.Image, tickesWhenDead, tickCountPerPose int, frameCount int) {
+func (w *Wes) Draw() (img *ebiten.Image, ticksWhenStateChanged, tickCountPerPose int, frameCount int) {
 	switch w.state {
 	case unitStateAttack:
-		return attackWesImg, 0, 3, 6
+		return attackWesImg, w.tickesWhenAttackState, 6, 6
 	case unitStateWalk:
 		return walkWesImg, 0, 5, 4
 	default:
@@ -69,6 +70,15 @@ func (w *Wes) Draw() (img *ebiten.Image, tickesWhenDead, tickCountPerPose int, f
 
 func (w *Wes) Position() (float64, float64) {
 	return w.position.x, w.position.y
+}
+
+func (w *Wes) Handle(et EventType, payload any) {
+	switch et {
+	case attackAnimationEnded:
+		w.state = unitStateWalk
+	default:
+		return
+	}
 }
 
 func (w *Wes) State() unitState {
@@ -90,7 +100,7 @@ func (w *Wes) VecVelocity() Vector2D {
 func (w *Wes) Scale() (float64, float64) {
 	switch w.state {
 	case unitStateAttack:
-		return 1.3, 1.3
+		return 1, 1
 	default:
 		return 1, 1
 	}
@@ -145,30 +155,46 @@ func (w *Wes) IsPlayer() bool { return true }
 // 3. We should only suport press and release action to attack
 //
 
-func (w *Wes) Attack() []Unit {
+func (w *Wes) Attack(tick int) []Unit {
 	w.state = unitStateAttack
+	w.tickesWhenAttackState = tick
 
-	// upperView := w.position.AddVal(wesViewRadius)
-	// lowerView := w.position.AddVal(-wesViewRadius)
-
-	const n = 20
-	ax, _ := float64(w.position.x+n), float64(w.position.y-n)
+	const n = 25
+	ax, ay := float64(w.position.x+n), float64(w.position.y-n)
 	_, by := float64(w.position.x+n), float64(w.position.y+n)
 	cx, cy := float64(w.position.x), float64(w.position.y)
 
 	var unitsEaten []Unit
-	for i := cx; i <= math.Min(ax, screenWidth); i++ {
-		for k := cy; k <= math.Min(by, screenHeight); k++ {
-			fmt.Println("scan sequence", "x", i, "y", k)
-
+	newX0 := cx
+	for k := math.Min(cy, screenHeight); k >= math.Max(ay, 0); k-- {
+		for i := math.Max(newX0, 0); i <= math.Min(ay, screenWidth); i++ {
 			seenUnitID := unitsByPositions[int(i)][int(k)]
+
 			if seenUnitID == -1 || w.id == seenUnitID {
 				continue
 			}
 			seenUnit := units[seenUnitID]
-
 			unitsEaten = append(unitsEaten, seenUnit)
+
 		}
+		newX0++
+	}
+
+	newY0 := cy + 1
+	newX02 := cx + 1
+	for k := math.Max(newY0, 0); k <= math.Min(by, screenHeight); k++ {
+		for i := math.Max(newX02, 0); i <= math.Min(ax, screenWidth); i++ {
+			seenUnitID := unitsByPositions[int(i)][int(k)]
+
+			if seenUnitID == -1 || w.id == seenUnitID {
+				continue
+			}
+			seenUnit := units[seenUnitID]
+			unitsEaten = append(unitsEaten, seenUnit)
+
+		}
+
+		newX02++
 	}
 
 	return unitsEaten
@@ -191,7 +217,7 @@ func (w *Wes) DrawAttackHitBox(screen *ebiten.Image) {
 	// )
 
 	// Triangle hit box: C (Wes) -> A (right-up) -> B (right-down) -> back to C.
-	const n = 20
+	const n = 25
 	ax, ay := float32(w.position.x+n), float32(w.position.y-n)
 	bx, by := float32(w.position.x+n), float32(w.position.y+n)
 	cx, cy := float32(w.position.x), float32(w.position.y)

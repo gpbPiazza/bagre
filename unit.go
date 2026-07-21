@@ -30,7 +30,7 @@ const (
 type Unit interface {
 	// Draw return every property needed to propertly draw a unit
 	// Draw itself dont draw the unit. just return data
-	Draw() (img *ebiten.Image, ticksWhenDead int, tickCountPerPose int, frameCount int)
+	Draw() (img *ebiten.Image, ticksWhenStateChanged int, tickCountPerPose int, frameCount int)
 
 	Scale() (float64, float64)
 
@@ -76,6 +76,8 @@ func NewUnits(eventManager *EventManager, logger *slog.Logger) Units {
 	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
 	units[wes.id] = wes
 
+	eventManager.subscribe(attackAnimationEnded, wes)
+
 	return Units{
 		wes:        wes,
 		smack:      smack,
@@ -85,6 +87,15 @@ func NewUnits(eventManager *EventManager, logger *slog.Logger) Units {
 
 func checkState(u Unit, tick int, events *EventManager) {
 	switch u.State() {
+	case unitStateAttack:
+		_, ticksWhenStateChanged, tickCountPerFrame, frameCount := u.Draw()
+		howLongItLast := tickCountPerFrame * frameCount
+		elapsed := tick - ticksWhenStateChanged
+
+		if elapsed >= howLongItLast {
+			events.Publish(attackAnimationEnded, u)
+		}
+
 	case unitStateDead:
 		_, ticksWhenDead, tickCountPerFrame, frameCount := u.Draw()
 		howLongItLast := tickCountPerFrame * frameCount

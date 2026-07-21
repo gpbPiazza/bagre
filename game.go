@@ -52,7 +52,7 @@ func (g *Game) Update() error {
 
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		fmt.Println("HITTED SPACE")
-		g.units.unitsEaten = append(g.units.unitsEaten, g.units.wes.Attack()...)
+		g.units.unitsEaten = append(g.units.unitsEaten, g.units.wes.Attack(g.tick)...)
 	}
 
 	for _, u := range g.units.unitsEaten {
@@ -62,6 +62,8 @@ func (g *Game) Update() error {
 	for _, u := range g.units.unitsEaten {
 		checkState(u, g.tick, g.evenetManager)
 	}
+
+	checkState(g.units.wes, g.tick, g.evenetManager)
 
 	rebuildGrid()
 	return nil
