@@ -12,10 +12,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-// wesViewRadius is how far Wes's attack reaches. Shared by Attack (the real
-// hitbox) and DrawAttackHitBox (the debug visualization) so they never drift.
-const wesViewRadius = 100
-
 var (
 	attackWesImg *ebiten.Image
 	walkWesImg   *ebiten.Image
@@ -145,16 +141,6 @@ func (w *Wes) Die(tick int) {}
 
 func (w *Wes) IsPlayer() bool { return true }
 
-// TODO
-// 1. fix attack hit box to be a trapézio and not a square
-// 2. fix animation to
-// 2.1 find the units to  attack
-// 2.2 set animation of atack
-// 2.3 wait animation of atack to finish
-// 2.4 put animation of runing back
-// 3. We should only suport press and release action to attack
-//
-
 func (w *Wes) Attack(tick int) []Unit {
 	if w.state == unitStateAttack {
 		return nil
@@ -162,25 +148,6 @@ func (w *Wes) Attack(tick int) []Unit {
 
 	w.state = unitStateAttack
 	w.tickesWhenAttackState = tick
-
-	// upperView := w.position.AddVal(100)
-	// lowerView := w.position.AddVal(-100)
-	//
-	// var unitsEaten []Unit
-	// for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
-	// 	for k := math.Max(lowerView.y, 0); k <= math.Min(upperView.y, screenHeight); k++ {
-	// 		seenUnitID := unitsByPositions[int(i)][int(k)]
-	// 		if seenUnitID == -1 || w.id == seenUnitID {
-	// 			continue
-	// 		}
-	// 		seenUnit := units[seenUnitID]
-	//
-	// 		unitsEaten = append(unitsEaten, seenUnit)
-	//
-	// 	}
-	// }
-	//
-	// return unitsEaten
 
 	const n = 25
 	ax, ay := float64(w.position.x+n), float64(w.position.y-n)
@@ -192,13 +159,10 @@ func (w *Wes) Attack(tick int) []Unit {
 	for k := math.Min(cy, screenHeight); k >= math.Max(ay, 0); k-- {
 		for i := math.Max(newX0, 0); i <= math.Min(ax, screenWidth); i++ {
 			seenUnitID := unitsByPositions[int(i)][int(k)]
-
-			if seenUnitID == -1 || w.id == seenUnitID {
-				continue
+			if seenUnitID != -1 && w.id != seenUnitID {
+				seenUnit := units[seenUnitID]
+				unitsEaten = append(unitsEaten, seenUnit)
 			}
-			seenUnit := units[seenUnitID]
-			unitsEaten = append(unitsEaten, seenUnit)
-
 		}
 		newX0++
 	}
@@ -208,13 +172,10 @@ func (w *Wes) Attack(tick int) []Unit {
 	for k := math.Max(newY0, 0); k <= math.Min(by, screenHeight); k++ {
 		for i := math.Max(newX02, 0); i <= math.Min(ax, screenWidth); i++ {
 			seenUnitID := unitsByPositions[int(i)][int(k)]
-
-			if seenUnitID == -1 || w.id == seenUnitID {
-				continue
+			if seenUnitID != -1 && w.id != seenUnitID {
+				seenUnit := units[seenUnitID]
+				unitsEaten = append(unitsEaten, seenUnit)
 			}
-			seenUnit := units[seenUnitID]
-			unitsEaten = append(unitsEaten, seenUnit)
-
 		}
 
 		newX02++
