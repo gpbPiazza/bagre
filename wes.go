@@ -31,6 +31,12 @@ var (
 // - ⁠wes perde se acabar o tempo
 // - ⁠antes do inimigo do wes aparecer, vai ter tartarugas, elas nao dao dano no wes mas elas comem os peixes dele, logo, ele fica menor. Ele compete com elas e elas empurram ele tomando stun
 
+// TODOs para codar
+// jelly fish eaten count
+// vida do wes
+// jelly fish aleatorias ficam em estado de attack
+// caso wes coma elas ele toma dano.
+
 type Wes struct {
 	position              Vector2D
 	velocity              Vector2D
