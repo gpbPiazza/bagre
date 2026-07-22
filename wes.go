@@ -156,6 +156,10 @@ func (w *Wes) IsPlayer() bool { return true }
 //
 
 func (w *Wes) Attack(tick int) []Unit {
+	if w.state == unitStateAttack {
+		return nil
+	}
+
 	w.state = unitStateAttack
 	w.tickesWhenAttackState = tick
 

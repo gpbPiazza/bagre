@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"image/color"
 	"os"
 	"slices"
@@ -40,8 +39,6 @@ func NewGame(gUnits Units, evenEventManager *EventManager) *Game {
 func (g *Game) Update() error {
 	g.tick++
 
-	g.units.wes.move()
-
 	for _, j := range g.units.smack {
 		j.nextMove()
 	}
@@ -49,12 +46,9 @@ func (g *Game) Update() error {
 		j.writeMove()
 	}
 
-	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
-		fmt.Println("RELEASED SPACE")
-	}
+	g.units.wes.move()
 
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		fmt.Println("HITTED SPACE")
 		g.units.unitsEaten = append(g.units.unitsEaten, g.units.wes.Attack(g.tick)...)
 	}
 
