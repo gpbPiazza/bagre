@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image/color"
+	"os"
 	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -23,6 +24,7 @@ type Game struct {
 	tick          int // grows by 1 every Update (~60/sec); our clock for animation
 	units         Units
 	evenetManager *EventManager
+	DrawHitBox    bool
 }
 
 func NewGame(gUnits Units, evenEventManager *EventManager) *Game {
@@ -31,6 +33,7 @@ func NewGame(gUnits Units, evenEventManager *EventManager) *Game {
 		ScreenHeight:  screenHeight,
 		units:         gUnits,
 		evenetManager: evenEventManager,
+		DrawHitBox:    os.Getenv("DRAW_HIT_BOX") != "",
 	}
 }
 
@@ -75,8 +78,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		drawUnit(screen, u, g.tick)
 	}
 
-	// TEMP: visualize Wes's attack hitbox. Delete when done debugging.
-	g.units.wes.DrawAttackHitBox(screen)
+	if g.DrawHitBox {
+		g.units.wes.DrawAttackHitBox(screen)
+	}
 }
 
 func (g *Game) Handle(et EventType, payload any) {

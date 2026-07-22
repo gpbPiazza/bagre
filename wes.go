@@ -159,6 +159,25 @@ func (w *Wes) Attack(tick int) []Unit {
 	w.state = unitStateAttack
 	w.tickesWhenAttackState = tick
 
+	// upperView := w.position.AddVal(100)
+	// lowerView := w.position.AddVal(-100)
+	//
+	// var unitsEaten []Unit
+	// for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
+	// 	for k := math.Max(lowerView.y, 0); k <= math.Min(upperView.y, screenHeight); k++ {
+	// 		seenUnitID := unitsByPositions[int(i)][int(k)]
+	// 		if seenUnitID == -1 || w.id == seenUnitID {
+	// 			continue
+	// 		}
+	// 		seenUnit := units[seenUnitID]
+	//
+	// 		unitsEaten = append(unitsEaten, seenUnit)
+	//
+	// 	}
+	// }
+	//
+	// return unitsEaten
+
 	const n = 25
 	ax, ay := float64(w.position.x+n), float64(w.position.y-n)
 	_, by := float64(w.position.x+n), float64(w.position.y+n)
@@ -215,7 +234,7 @@ func (w *Wes) DrawAttackHitBox(screen *ebiten.Image) {
 	// 	green,
 	// 	false,
 	// )
-
+	//
 	// Triangle hit box: C (Wes) -> A (right-up) -> B (right-down) -> back to C.
 	const n = 25
 	ax, ay := float32(w.position.x+n), float32(w.position.y-n)
