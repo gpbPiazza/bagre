@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "cat conventions/*.md" }] }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "just ci >&2 || exit 2",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

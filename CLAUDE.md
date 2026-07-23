@@ -4,9 +4,9 @@
 
 ## Conventions
 
-- Tests must follow `conventions/tests.md`
+@conventions/tests.md
 
 ## Commands
 
 - Run the game: `go run .`
-- Run tests: `go test .`
+- Run tests: `go test ./...`
