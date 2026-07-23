@@ -94,7 +94,7 @@ func (g *Game) handleRemoveUnit(payload any) {
 
 	delete(units, u.ID())
 	position := u.VecPosition()
-	unitsByPositions[int(position.x)][int(position.y)] = -1
+	unitsPositions[int(position.x)][int(position.y)] = -1
 	g.units.smack = slices.DeleteFunc(g.units.smack, func(e *JellyFish) bool {
 		return e.ID() == u.ID()
 	})
@@ -106,14 +106,14 @@ func (g *Game) Layout(_, _ int) (int, int) {
 }
 
 func rebuildGrid() {
-	for i := range unitsByPositions {
-		for k := range unitsByPositions[i] {
-			unitsByPositions[i][k] = -1
+	for i := range unitsPositions {
+		for k := range unitsPositions[i] {
+			unitsPositions[i][k] = -1
 		}
 	}
 
 	for id, u := range units {
 		p := u.VecPosition()
-		unitsByPositions[int(p.x)][int(p.y)] = id
+		unitsPositions[int(p.x)][int(p.y)] = id
 	}
 }

@@ -8,6 +8,12 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+var (
+	unitsPositions = [screenWidth + 2][screenHeight + 2]int{}
+	// units is the collective noun for jellyFish
+	units = make(map[int]Unit, 0)
+)
+
 type unitState int
 
 func (js unitState) String() string {
@@ -56,11 +62,11 @@ type Units struct {
 }
 
 func NewUnits(eventManager *EventManager, logger *slog.Logger) Units {
-	wes := NewWes(jellysCount+2, logger)
+	wes := NewWes(jellysCount+2, logger, eventManager)
 
-	for i, row := range unitsByPositions {
+	for i, row := range unitsPositions {
 		for j := range row {
-			unitsByPositions[i][j] = -1
+			unitsPositions[i][j] = -1
 		}
 	}
 
@@ -69,14 +75,12 @@ func NewUnits(eventManager *EventManager, logger *slog.Logger) Units {
 		jelly := newJellyFish(i, logger, eventManager)
 
 		units[jelly.id] = jelly
-		unitsByPositions[int(jelly.position.x)][int(jelly.position.y)] = jelly.ID()
+		unitsPositions[int(jelly.position.x)][int(jelly.position.y)] = jelly.ID()
 		smack = append(smack, jelly)
 	}
 
-	unitsByPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
+	unitsPositions[int(wes.position.x)][int(wes.position.y)] = wes.id
 	units[wes.id] = wes
-
-	eventManager.subscribe(attackAnimationEnded, wes)
 
 	return Units{
 		wes:        wes,

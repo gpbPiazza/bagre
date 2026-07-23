@@ -42,20 +42,25 @@ type Wes struct {
 	velocity              Vector2D
 	id                    int
 	tickesWhenAttackState int
+	jellyEatenCount       int
 
 	state  unitState
 	logger *slog.Logger
 }
 
-func NewWes(id int, l *slog.Logger) *Wes {
+func NewWes(id int, l *slog.Logger, eventManager *EventManager) *Wes {
 	w := &Wes{
 		position:              Vector2D{x: screenWidth / 2, y: screenHeight / 2},
 		velocity:              Vector2D{x: 1.0, y: 1.0},
 		id:                    id,
 		tickesWhenAttackState: 0,
+		jellyEatenCount:       0,
 		state:                 unitStateWalk,
 		logger:                l,
 	}
+
+	eventManager.subscribe(attackAnimationEnded, w)
+
 	return w
 }
 
@@ -148,6 +153,7 @@ func (w *Wes) Die(tick int) {}
 func (w *Wes) IsPlayer() bool { return true }
 
 func (w *Wes) Attack(tick int) []Unit {
+	w.logger.Info("wes comeu", "grmeio", w.jellyEatenCount)
 	if w.state == unitStateAttack {
 		return nil
 	}
@@ -164,7 +170,7 @@ func (w *Wes) Attack(tick int) []Unit {
 	newX0 := cx
 	for k := math.Min(cy, screenHeight); k >= math.Max(ay, 0); k-- {
 		for i := math.Max(newX0, 0); i <= math.Min(ax, screenWidth); i++ {
-			seenUnitID := unitsByPositions[int(i)][int(k)]
+			seenUnitID := unitsPositions[int(i)][int(k)]
 			if seenUnitID != -1 && w.id != seenUnitID {
 				seenUnit := units[seenUnitID]
 				unitsEaten = append(unitsEaten, seenUnit)
@@ -177,7 +183,7 @@ func (w *Wes) Attack(tick int) []Unit {
 	newX02 := cx + 1
 	for k := math.Max(newY0, 0); k <= math.Min(by, screenHeight); k++ {
 		for i := math.Max(newX02, 0); i <= math.Min(ax, screenWidth); i++ {
-			seenUnitID := unitsByPositions[int(i)][int(k)]
+			seenUnitID := unitsPositions[int(i)][int(k)]
 			if seenUnitID != -1 && w.id != seenUnitID {
 				seenUnit := units[seenUnitID]
 				unitsEaten = append(unitsEaten, seenUnit)
@@ -186,6 +192,8 @@ func (w *Wes) Attack(tick int) []Unit {
 
 		newX02++
 	}
+
+	w.jellyEatenCount += len(unitsEaten)
 
 	return unitsEaten
 }

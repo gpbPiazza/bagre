@@ -26,10 +26,6 @@ const (
 )
 
 var (
-	unitsByPositions = [screenWidth + 1][screenHeight + 1]int{}
-	// units is the collective noun for jellyFish
-	units = make(map[int]Unit, 0)
-
 	jellyWalkImg  *ebiten.Image
 	jellyDeathImg *ebiten.Image
 )
@@ -127,7 +123,7 @@ func (j *JellyFish) calcAcceleration() Vector2D {
 
 	for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
 		for k := math.Max(lowerView.y, 0); k <= math.Min(upperView.y, screenHeight); k++ {
-			seenUnitID := unitsByPositions[int(i)][int(k)]
+			seenUnitID := unitsPositions[int(i)][int(k)]
 
 			if seenUnitID == -1 || j.id == seenUnitID {
 				continue
@@ -181,13 +177,16 @@ func (j *JellyFish) borderBounce(pos, border float64) float64 {
 	// Está próximo da bater na borda, passou do limite de vistualização
 	// ou seja o passarinho viu a parede e irá mudar de direção
 	if pos < jellyViewRadius {
-		return 1 / pos
+		// Cap pos at 0.5: at pos <= 0 (already past the border) a raw 1/pos
+		// flips sign (or hits +Inf) and shoves the jelly further off-screen,
+		// so keep the push finite and always pointing back inside.
+		return 1 / math.Max(pos, 0.5)
 	}
 	// Is the same thing but in the other side of the screenView
 	// o primeiro If é para o jelly que está próximo da parede em que X é muito pequeno
 	// Aqui o x é grande, o mesmo para Y.
 	if pos > border-jellyViewRadius {
-		return 1 / (pos - border)
+		return 1 / math.Min(pos-border, -0.5)
 	}
 
 	return 0
@@ -221,6 +220,13 @@ func (j *JellyFish) nextMove() {
 	}
 
 	j.nextPosition = j.position.Add(j.nextVelocity)
+
+	// Hard wall: rebuildGrid indexes unitsPositions by position, so a jelly
+	// outside [0, screenWidth] x [0, screenHeight] panics the game. The
+	// bounce steers away from borders, but flee/flock forces can overpower
+	// it in a single frame — clamp as the last line of defense.
+	j.nextPosition.x = math.Min(math.Max(j.nextPosition.x, 0), screenWidth)
+	j.nextPosition.y = math.Min(math.Max(j.nextPosition.y, 0), screenHeight)
 }
 
 func loadJellyImg() error {

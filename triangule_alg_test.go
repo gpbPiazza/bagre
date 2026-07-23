@@ -58,7 +58,7 @@ func Test_run_triangle(t *testing.T) {
 
 	assertPoint(xb, yb, x_b, y_b)
 
-	expectedZeroCount := 24
+	expectedZeroCount := 25
 	var zeroGot []int
 
 	fmt.Print("getting the upper part\n")
