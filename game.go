@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"image/color"
 	"log/slog"
 	"os"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
+	"golang.org/x/image/font/gofont/goregular"
 )
 
 const (
@@ -16,6 +19,16 @@ const (
 
 var (
 	darkGrey = color.RGBA{R: 40, G: 45, B: 60, A: 255}
+	// counterFaceSource holds the parsed font; parsing is expensive so it
+	// happens once at init, never inside Draw.
+	// TODO create a system start up
+	textFont = func() *text.GoTextFaceSource {
+		s, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
+		if err != nil {
+			panic(err)
+		}
+		return s
+	}()
 )
 
 type Game struct {
@@ -78,16 +91,18 @@ func (g *Game) Update() error {
 	return nil
 }
 
-func (g *Game) Draw(screen *ebiten.Image) {
-	screen.Fill(darkGrey)
-	g.counter.Draw(screen)
+func (g *Game) Draw(s *ebiten.Image) {
+	s.Fill(darkGrey)
+
+	g.counter.Draw(s)
+	g.units.wes.DrawLife(s)
 
 	for _, u := range units {
-		drawUnit(screen, u, g.tick)
+		drawUnit(s, u, g.tick)
 	}
 
 	if g.DrawHitBox {
-		g.units.wes.DrawAttackHitBox(screen)
+		g.units.wes.DrawAttackHitBox(s)
 	}
 }
 

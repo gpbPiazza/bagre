@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/color"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
@@ -34,6 +36,7 @@ var (
 // TODOs para codar
 // jelly fish eaten count
 // vida do wes
+//
 // jelly fish aleatorias ficam em estado de attack
 // caso wes coma elas ele toma dano.
 
@@ -43,6 +46,7 @@ type Wes struct {
 	id                    int
 	tickesWhenAttackState int
 	counter               *Counter
+	life                  int
 
 	state  unitState
 	logger *slog.Logger
@@ -62,6 +66,7 @@ func NewWes(
 		counter:               c,
 		state:                 unitStateWalk,
 		logger:                l,
+		life:                  3,
 	}
 
 	eventManager.subscribe(attackAnimationEnded, w)
@@ -91,6 +96,21 @@ func (w *Wes) Handle(et EventType, payload any) {
 	default:
 		return
 	}
+}
+
+func (w *Wes) DrawLife(screen *ebiten.Image) {
+	msg := fmt.Sprintf("Vida: %d/3", w.life)
+
+	face := &text.GoTextFace{
+		Source: textFont,
+		Size:   counterFontSize,
+	}
+
+	op := &text.DrawOptions{}
+	op.GeoM.Translate(10, 10)
+	op.ColorScale.ScaleWithColor(color.White)
+
+	text.Draw(screen, msg, face, op)
 }
 
 func (w *Wes) State() unitState {
