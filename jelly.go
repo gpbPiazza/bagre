@@ -2,13 +2,17 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image"
+	"image/color"
 	"log/slog"
 	"math"
 	"math/rand"
 	"os"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 const (
@@ -18,16 +22,19 @@ const (
 	// = many sub-groups that drift, split, and re-form (a living school).
 	// Lower bound: must exceed the drawn sprite size (48*0.5 = 24px) so a jelly
 	// senses a neighbor BEFORE their images overlap.
-	jellyViewRadius      = 20
+	jellyViewRadius       = 20
+	jellyAttackViewRadius = 25
+
 	adjustRateAligment   = 0.15
 	adjustRateCohesion   = 0.09
 	adjustRateSeparation = 0.30
-	jellysCount          = 250
+	jellysCount          = 400
 )
 
 var (
-	jellyWalkImg  *ebiten.Image
-	jellyDeathImg *ebiten.Image
+	jellyWalkImg   *ebiten.Image
+	jellyDeathImg  *ebiten.Image
+	jellyAttackImg *ebiten.Image
 )
 
 type JellyFish struct {
@@ -64,6 +71,8 @@ func (j *JellyFish) Draw() (img *ebiten.Image, ticksWhenDead, tickCountPerPose i
 		return jellyWalkImg, 0, 5, 4
 	case unitStateDead:
 		return jellyDeathImg, j.tickWhenDied, 10, 6
+	case unitStateAttack:
+		return jellyAttackImg, 0, 10, 4
 	default:
 		return jellyWalkImg, 0, 5, 4
 	}
@@ -93,6 +102,63 @@ func (j *JellyFish) State() unitState {
 	return j.state
 }
 
+func (j *JellyFish) Attack() {
+	j.state = unitStateAttack
+	done := time.After(4 * time.Second)
+
+	for {
+		select {
+		case <-done:
+			fmt.Println("Finished looping.")
+			j.state = unitStateWalk
+			fmt.Println("put jelly to walk state after 4 secods.")
+			return
+		default:
+			for _, unit := range j.unitsSeen(jellyAttackViewRadius) {
+				if unit.IsPlayer() {
+					j.events.Publish(wesTakeDMG, nil)
+				}
+			}
+		}
+	}
+}
+
+func (j *JellyFish) DrawAttackHitBox(s *ebiten.Image) {
+	green := color.RGBA{R: 0, G: 255, B: 0, A: 255}
+	vector.StrokeRect(
+		s,
+		float32(j.position.x-jellyAttackViewRadius),
+		float32(j.position.y-jellyAttackViewRadius),
+		jellyAttackViewRadius*2,
+		jellyAttackViewRadius*2,
+		1,
+		green,
+		false,
+	)
+}
+
+// unitSeen will iterate over a box in the grind where viewRadius val will create
+// a upper point and a lower point from the the jelly position. Iteration start at first x element all smmaler y -> bigger, go to next x repeat y.
+func (j *JellyFish) unitsSeen(viewRadius float64) []Unit {
+	var seen []Unit
+
+	upperView := j.position.AddVal(viewRadius)
+	lowerView := j.position.AddVal(-viewRadius)
+
+	for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
+		for k := math.Max(lowerView.y, 0); k <= math.Min(upperView.y, screenHeight); k++ {
+			seenUnitID := unitsPositions[int(i)][int(k)]
+			if seenUnitID == -1 || j.id == seenUnitID {
+				continue
+			}
+			seenUnit := units[seenUnitID]
+			seen = append(seen, seenUnit)
+		}
+	}
+
+	return seen
+}
+
 func (j *JellyFish) Die(tick int) {
 	if j.state == unitStateDead {
 		return
@@ -110,8 +176,6 @@ func (j *JellyFish) Die(tick int) {
 // - Local awareness — each fish reacts to a few near neighbors, not the whole tank.
 // - Tension, not equilibrium — separation slightly wins up close (no overlap), cohesion pulls loosely at medium range, alignment keeps sub-groups coherent — but they never perfectly cancel.
 func (j *JellyFish) calcAcceleration() Vector2D {
-	upperView := j.position.AddVal(jellyViewRadius)
-	lowerView := j.position.AddVal(-jellyViewRadius)
 	// all variables with prefix all here mean all elements inside of viewBox, inside of JellyFish View Radius
 	allJellyFishsVelocity := Vector2D{x: 0, y: 0}
 	allJellyFishsPosition := Vector2D{x: 0, y: 0}
@@ -121,33 +185,26 @@ func (j *JellyFish) calcAcceleration() Vector2D {
 	jellysCount := 0.0
 	wesSeen := false
 
-	for i := math.Max(lowerView.x, 0); i <= math.Min(upperView.x, screenWidth); i++ {
-		for k := math.Max(lowerView.y, 0); k <= math.Min(upperView.y, screenHeight); k++ {
-			seenUnitID := unitsPositions[int(i)][int(k)]
+	unistsSeen := j.unitsSeen(jellyViewRadius)
 
-			if seenUnitID == -1 || j.id == seenUnitID {
-				continue
-			}
+	for _, seenUnit := range unistsSeen {
+		seenPosition := seenUnit.VecPosition()
+		seenVelocity := seenUnit.VecVelocity()
 
-			seenUnit := units[seenUnitID]
-			seenPosition := seenUnit.VecPosition()
-			seenVelocity := seenUnit.VecVelocity()
-
-			if seenUnit.IsPlayer() {
-				wesSeen = true
-				dist := seenPosition.Distance(j.position)
-				separation := j.position.Subtract(seenPosition).DivisionVal(dist - dist/2) // push aways too close
-				allFleeWes = allFleeWes.Add(separation)                                    // push aways too close
-			}
-
+		if seenUnit.IsPlayer() {
+			wesSeen = true
 			dist := seenPosition.Distance(j.position)
-			if dist < jellyViewRadius {
-				jellysCount++
-				allJellyFishsVelocity = allJellyFishsVelocity.Add(seenVelocity)   // Direction
-				allJellyFishsPosition = allJellyFishsPosition.Add(seenPosition)   // move to the center
-				separation := j.position.Subtract(seenPosition).DivisionVal(dist) // push aways too close
-				allJellyFishsSeparation = allJellyFishsSeparation.Add(separation) // push aways too close
-			}
+			separation := j.position.Subtract(seenPosition).DivisionVal(dist - dist/2) // push aways too close
+			allFleeWes = allFleeWes.Add(separation)                                    // push aways too close
+		}
+
+		dist := seenPosition.Distance(j.position)
+		if dist < jellyViewRadius {
+			jellysCount++
+			allJellyFishsVelocity = allJellyFishsVelocity.Add(seenVelocity)   // Direction
+			allJellyFishsPosition = allJellyFishsPosition.Add(seenPosition)   // move to the center
+			separation := j.position.Subtract(seenPosition).DivisionVal(dist) // push aways too close
+			allJellyFishsSeparation = allJellyFishsSeparation.Add(separation) // push aways too close
 		}
 	}
 
@@ -250,6 +307,16 @@ func loadJellyImg() error {
 		return err
 	}
 	jellyDeathImg = ebiten.NewImageFromImage(dieImg)
+
+	attackPng, err := os.ReadFile("./assets/jellyfish/Attack.png")
+	if err != nil {
+		return err
+	}
+	attackImg, _, err := image.Decode(bytes.NewReader(attackPng))
+	if err != nil {
+		return err
+	}
+	jellyAttackImg = ebiten.NewImageFromImage(attackImg)
 
 	return nil
 }

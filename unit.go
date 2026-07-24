@@ -95,26 +95,24 @@ func NewUnits(
 }
 
 func checkState(u Unit, tick int, events *EventManager) {
-	switch u.State() {
-	case unitStateAttack:
+	notifyWhenAnimationEned := func(et EventType, u Unit) {
 		_, ticksWhenStateChanged, tickCountPerFrame, frameCount := u.Draw()
+		// 10 * 6 -> 60 -> animataçõa demora 60 ticks para terminar
 		howLongItLast := tickCountPerFrame * frameCount
+
+		// elapsed for menor ou igual ao fim da animação, significa que ja acabou
 		elapsed := tick - ticksWhenStateChanged
 
 		if elapsed >= howLongItLast {
-			events.Publish(attackAnimationEnded, u)
+			events.Publish(et, u)
 		}
+	}
 
+	switch u.State() {
+	case unitStateAttack:
+		notifyWhenAnimationEned(attackAnimationEnded, u)
 	case unitStateDead:
-		_, ticksWhenDead, tickCountPerFrame, frameCount := u.Draw()
-		howLongItLast := tickCountPerFrame * frameCount
-		// 10 * 6 -> 60 -> animataçõa demora 60 ticks para terminar
-		elapsed := tick - ticksWhenDead
-		// elapsed for menor ou igual ao fim da animação, significa que ja acabou
-
-		if elapsed >= howLongItLast {
-			events.Publish(removeUnit, u)
-		}
+		notifyWhenAnimationEned(removeUnit, u)
 	default:
 		return
 	}

@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image/color"
 	"log/slog"
+	"math/rand/v2"
 	"os"
 	"slices"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -44,7 +47,7 @@ type Game struct {
 func NewGame(l *slog.Logger) *Game {
 	eventManager := NewEventManager()
 
-	counter := NewCounter(jellysCount)
+	counter := NewCounter(jellysCount, eventManager)
 	gUnits := NewUnits(eventManager, l, counter)
 
 	g := &Game{
@@ -57,6 +60,7 @@ func NewGame(l *slog.Logger) *Game {
 	}
 
 	eventManager.subscribe(removeUnit, g)
+	eventManager.subscribe(startEletricJellyFishs, g)
 
 	return g
 }
@@ -103,6 +107,9 @@ func (g *Game) Draw(s *ebiten.Image) {
 
 	if g.DrawHitBox {
 		g.units.wes.DrawAttackHitBox(s)
+		for _, u := range g.units.smack {
+			u.DrawAttackHitBox(s)
+		}
 	}
 }
 
@@ -110,8 +117,57 @@ func (g *Game) Handle(et EventType, payload any) {
 	switch et {
 	case removeUnit:
 		g.handleRemoveUnit(payload)
+	case startEletricJellyFishs:
+		g.handleEleticJellyFishs(payload)
 	default:
 		return
+	}
+}
+
+func (g *Game) handleEleticJellyFishs(_ any) {
+	go func() {
+		for {
+			g.triggerEletricJelly()
+
+			fmt.Println("AFTER 5 SECONDS select 20 jelly to be in attack state ")
+			time.Sleep(time.Second * 5)
+		}
+	}()
+
+	// trigger jelly Attack ela vai ficar uns 5 segundos em modo de attack
+	// enquanto ela estiver em modo de attack, caso ela veja o wes ele toma dano.
+	// volta ao normal
+	//
+	// espera mais 5 segundos
+	// sorteia novas jellys para attacar.
+	//
+}
+
+func (g *Game) triggerEletricJelly() {
+	var chunks [][]*JellyFish
+	chunkLen := len(g.units.smack) / 4
+
+	var chunk []*JellyFish
+	for _, s := range g.units.smack {
+		chunk = append(chunk, s)
+
+		if len(chunk) == chunkLen {
+			chunks = append(chunks, chunk)
+			chunk = nil
+		}
+	}
+
+	index := rand.IntN(len(chunks))
+	jellyAttackLimit := 20
+	count := 0
+	for i, s := range chunks[index] {
+		if i%2 == 0 && count < jellyAttackLimit {
+			count++
+
+			go func() {
+				s.Attack()
+			}()
+		}
 	}
 }
 

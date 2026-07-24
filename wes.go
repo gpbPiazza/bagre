@@ -70,6 +70,7 @@ func NewWes(
 	}
 
 	eventManager.subscribe(attackAnimationEnded, w)
+	eventManager.subscribe(wesTakeDMG, w)
 
 	return w
 }
@@ -93,10 +94,27 @@ func (w *Wes) Handle(et EventType, payload any) {
 	switch et {
 	case attackAnimationEnded:
 		w.state = unitStateWalk
+	case wesTakeDMG:
+		w.takeDMG()
 	default:
 		return
 	}
 }
+
+func (w *Wes) takeDMG() {
+	// TODO I need to implement the animation of tacking damage
+	// while the animation of damage is on wes should not take more damage
+	// like 1 or 2 seconds imune to dmg
+	w.life--
+	if w.life == 0 {
+		w.state = unitStateDead
+		// TODO implement animation of wes dieing
+		// currently when wes die he just vanish from the screen.
+	}
+}
+
+// TODO: implement Draw user UI where will receive wes life
+// and counter as depency and draw a betiuful ui of wes spells life and icons
 
 func (w *Wes) DrawLife(screen *ebiten.Image) {
 	msg := fmt.Sprintf("Vida: %d/3", w.life)
@@ -185,7 +203,7 @@ func (w *Wes) Attack(tick int) []Unit {
 	w.state = unitStateAttack
 	w.tickesWhenAttackState = tick
 
-	const n = 25
+	const n = 50
 	ax, ay := float64(w.position.x+n), float64(w.position.y-n)
 	_, by := float64(w.position.x+n), float64(w.position.y+n)
 	cx, cy := float64(w.position.x), float64(w.position.y)

@@ -10,6 +10,8 @@ const (
 	animationEnded EventType = iota
 	removeUnit
 	attackAnimationEnded
+	startEletricJellyFishs
+	wesTakeDMG
 )
 
 type EventManager struct {
