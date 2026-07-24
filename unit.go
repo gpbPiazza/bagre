@@ -61,8 +61,13 @@ type Units struct {
 	unitsEaten []Unit
 }
 
-func NewUnits(eventManager *EventManager, logger *slog.Logger) Units {
-	wes := NewWes(jellysCount+2, logger, eventManager)
+func NewUnits(
+	eventManager *EventManager,
+	logger *slog.Logger,
+	counter *Counter,
+) Units {
+
+	wes := NewWes(jellysCount+2, logger, eventManager, counter)
 
 	for i, row := range unitsPositions {
 		for j := range row {

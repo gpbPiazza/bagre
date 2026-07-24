@@ -42,19 +42,24 @@ type Wes struct {
 	velocity              Vector2D
 	id                    int
 	tickesWhenAttackState int
-	jellyEatenCount       int
+	counter               *Counter
 
 	state  unitState
 	logger *slog.Logger
 }
 
-func NewWes(id int, l *slog.Logger, eventManager *EventManager) *Wes {
+func NewWes(
+	id int,
+	l *slog.Logger,
+	eventManager *EventManager,
+	c *Counter,
+) *Wes {
 	w := &Wes{
 		position:              Vector2D{x: screenWidth / 2, y: screenHeight / 2},
 		velocity:              Vector2D{x: 1.0, y: 1.0},
 		id:                    id,
 		tickesWhenAttackState: 0,
-		jellyEatenCount:       0,
+		counter:               c,
 		state:                 unitStateWalk,
 		logger:                l,
 	}
@@ -153,7 +158,6 @@ func (w *Wes) Die(tick int) {}
 func (w *Wes) IsPlayer() bool { return true }
 
 func (w *Wes) Attack(tick int) []Unit {
-	w.logger.Info("wes comeu", "grmeio", w.jellyEatenCount)
 	if w.state == unitStateAttack {
 		return nil
 	}
@@ -193,7 +197,7 @@ func (w *Wes) Attack(tick int) []Unit {
 		newX02++
 	}
 
-	w.jellyEatenCount += len(unitsEaten)
+	w.counter.Add(len(unitsEaten))
 
 	return unitsEaten
 }

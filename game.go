@@ -2,6 +2,7 @@ package main
 
 import (
 	"image/color"
+	"log/slog"
 	"os"
 	"slices"
 
@@ -22,18 +23,29 @@ type Game struct {
 	ScreenHeight  int
 	tick          int // grows by 1 every Update (~60/sec); our clock for animation
 	units         Units
+	counter       *Counter
 	evenetManager *EventManager
 	DrawHitBox    bool
 }
 
-func NewGame(gUnits Units, evenEventManager *EventManager) *Game {
-	return &Game{
+func NewGame(l *slog.Logger) *Game {
+	eventManager := NewEventManager()
+
+	counter := NewCounter(jellysCount)
+	gUnits := NewUnits(eventManager, l, counter)
+
+	g := &Game{
 		ScreenWidth:   screenWidth,
 		ScreenHeight:  screenHeight,
 		units:         gUnits,
-		evenetManager: evenEventManager,
+		evenetManager: eventManager,
 		DrawHitBox:    os.Getenv("DRAW_HIT_BOX") != "",
+		counter:       counter,
 	}
+
+	eventManager.subscribe(removeUnit, g)
+
+	return g
 }
 
 func (g *Game) Update() error {
@@ -68,6 +80,8 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(darkGrey)
+	g.counter.Draw(screen)
+
 	for _, u := range units {
 		drawUnit(screen, u, g.tick)
 	}
