@@ -2,14 +2,12 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"image"
 	"image/color"
 	"log/slog"
 	"math"
 	"math/rand"
 	"os"
-	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -25,10 +23,11 @@ const (
 	jellyViewRadius       = 20
 	jellyAttackViewRadius = 25
 
-	adjustRateAligment   = 0.15
-	adjustRateCohesion   = 0.09
-	adjustRateSeparation = 0.30
-	jellysCount          = 400
+	adjustRateAligment      = 0.15
+	adjustRateCohesion      = 0.09
+	adjustRateSeparation    = 0.30
+	adjustRateSeparationWes = 0.45
+	jellysCount             = 400
 )
 
 var (
@@ -44,6 +43,7 @@ type JellyFish struct {
 	nextVelocity Vector2D
 
 	tickWhenDied, id int
+	tickStartAttack  int
 	state            unitState
 	logger           *slog.Logger
 	events           *EventManager
@@ -72,7 +72,7 @@ func (j *JellyFish) Draw() (img *ebiten.Image, ticksWhenDead, tickCountPerPose i
 	case unitStateDead:
 		return jellyDeathImg, j.tickWhenDied, 10, 6
 	case unitStateAttack:
-		return jellyAttackImg, 0, 10, 4
+		return jellyAttackImg, 0, 5, 4
 	default:
 		return jellyWalkImg, 0, 5, 4
 	}
@@ -102,24 +102,41 @@ func (j *JellyFish) State() unitState {
 	return j.state
 }
 
-func (j *JellyFish) Attack() {
-	j.state = unitStateAttack
-	done := time.After(4 * time.Second)
+func (j *JellyFish) Attack(tick int) {
+	if j.state == unitStateAttack {
+		return
+	}
 
-	for {
-		select {
-		case <-done:
-			fmt.Println("Finished looping.")
-			j.state = unitStateWalk
-			fmt.Println("put jelly to walk state after 4 secods.")
-			return
-		default:
-			for _, unit := range j.unitsSeen(jellyAttackViewRadius) {
-				if unit.IsPlayer() {
-					j.events.Publish(wesTakeDMG, nil)
-				}
+	j.logger.Info("SETTING JELLY TO ATTACK")
+	j.tickStartAttack = tick
+	j.state = unitStateAttack
+}
+
+// TODO adicionar tests para essa parada como um todo desde
+// comeu suficinete pro stage -> seta pro attack random -> acada 5 secs seleciona mais 10 random
+// por quatro segundos elas ficam em estado de atack
+// Não ta ficando o tempo que eu espero....
+func (j *JellyFish) gremio(tick int) {
+	tickDiff := tick - j.tickStartAttack
+	hasPassedFourSeconds := tickDiff >= 4*60
+
+	j.logger.Info("jelly GREMIo",
+		"hasPassedFourSeconds", hasPassedFourSeconds,
+		"tickStartAttack", j.tickStartAttack,
+		"state", j.state.String(),
+	)
+
+	if j.state == unitStateAttack && j.tickStartAttack != 0 {
+		for _, unit := range j.unitsSeen(jellyAttackViewRadius) {
+			if unit.IsPlayer() {
+				j.events.Publish(wesTakeDMG, nil)
 			}
 		}
+	}
+
+	if hasPassedFourSeconds && j.tickStartAttack != 0 {
+		j.state = unitStateWalk
+		j.tickStartAttack = 0
 	}
 }
 
@@ -151,8 +168,9 @@ func (j *JellyFish) unitsSeen(viewRadius float64) []Unit {
 			if seenUnitID == -1 || j.id == seenUnitID {
 				continue
 			}
-			seenUnit := units[seenUnitID]
-			seen = append(seen, seenUnit)
+			if seenUnit, ok := units[seenUnitID]; ok {
+				seen = append(seen, seenUnit)
+			}
 		}
 	}
 
@@ -222,7 +240,7 @@ func (j *JellyFish) calcAcceleration() Vector2D {
 	}
 
 	if wesSeen {
-		accel = accel.Add(allFleeWes)
+		accel = accel.Add(allFleeWes.MultiplyVal(adjustRateSeparationWes))
 	}
 
 	return accel

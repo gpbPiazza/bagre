@@ -2,13 +2,11 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"image/color"
 	"log/slog"
 	"math/rand/v2"
 	"os"
 	"slices"
-	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -42,6 +40,9 @@ type Game struct {
 	counter       *Counter
 	evenetManager *EventManager
 	DrawHitBox    bool
+
+	logger                *slog.Logger
+	tickEletricJellyStart int
 }
 
 func NewGame(l *slog.Logger) *Game {
@@ -57,6 +58,7 @@ func NewGame(l *slog.Logger) *Game {
 		evenetManager: eventManager,
 		DrawHitBox:    os.Getenv("DRAW_HIT_BOX") != "",
 		counter:       counter,
+		logger:        l,
 	}
 
 	eventManager.subscribe(removeUnit, g)
@@ -73,6 +75,17 @@ func (g *Game) Update() error {
 	}
 	for _, j := range g.units.smack {
 		j.writeMove()
+		j.gremio(g.tick)
+	}
+
+	var underAttack []*JellyFish
+	for _, j := range g.units.smack {
+		if j.state == unitStateAttack {
+			underAttack = append(underAttack, j)
+		}
+	}
+	if len(underAttack) > 10 {
+		panic("we have more jelly under attack them expected")
 	}
 
 	g.units.wes.move()
@@ -91,6 +104,10 @@ func (g *Game) Update() error {
 
 	checkState(g.units.wes, g.tick, g.evenetManager)
 
+	// TODO create a struct reponsiable to deal with
+	// wes enemies stages and how they will come into the game.
+	g.stage(g.tick)
+
 	rebuildGrid()
 	return nil
 }
@@ -101,6 +118,17 @@ func (g *Game) Draw(s *ebiten.Image) {
 	g.counter.Draw(s)
 	g.units.wes.DrawLife(s)
 
+	// NOTE: if we draw wes after smack they will not see wes. order here matters
+	// because smack need calc next position then write their move
+	// drawUnit(s, g.units.wes, g.tick)
+	// PQ O WES TA SUMINDO DO MAPA?
+	// Quando eu parei de iterar no map de units as smacks simplemente pararm de considerar a posição do wes.
+	// TODO: tenho que fazer tests para:
+	// smack ver o wes e fugir dele
+	// wes come jelly e assert em tudo que deve acontecer
+	//  - jelly morrendo animação e parar de se mover
+	//  - wes esperar animação de atack acabar para atacar denovo
+	//  - counter ++
 	for _, u := range units {
 		drawUnit(s, u, g.tick)
 	}
@@ -118,32 +146,32 @@ func (g *Game) Handle(et EventType, payload any) {
 	case removeUnit:
 		g.handleRemoveUnit(payload)
 	case startEletricJellyFishs:
-		g.handleEleticJellyFishs(payload)
+		g.tickEletricJellyStart = g.tick
 	default:
 		return
 	}
 }
 
-func (g *Game) handleEleticJellyFishs(_ any) {
-	go func() {
-		for {
-			g.triggerEletricJelly()
+// stage checks what ever should happend given the stage that we are
+// currently we have stage 1 - eletricJellies,
+func (g *Game) stage(tick int) {
+	tickDiff := tick - g.tickEletricJellyStart
+	// Fire ONCE per 5s boundary. tickDiff/60 holds each value for a whole
+	// second, so `% 5` on it would be true for all 60 ticks of that second and
+	// call smackAttack 60x per boundary — each pass selecting a new random
+	// chunk, blowing past the 10-attacker cap. Modulo the RAW tick count
+	// instead: only one tick in every 300 (5*60) satisfies this.
+	hasPassedFiveSeconds := tickDiff > 0 && tickDiff%(5*60) == 0
 
-			fmt.Println("AFTER 5 SECONDS select 20 jelly to be in attack state ")
-			time.Sleep(time.Second * 5)
-		}
-	}()
+	if !(hasPassedFiveSeconds && g.tickEletricJellyStart != 0) {
+		return
+	}
 
-	// trigger jelly Attack ela vai ficar uns 5 segundos em modo de attack
-	// enquanto ela estiver em modo de attack, caso ela veja o wes ele toma dano.
-	// volta ao normal
-	//
-	// espera mais 5 segundos
-	// sorteia novas jellys para attacar.
-	//
+	g.logger.Info("passed 5 seconds trigger eletric Smack")
+	g.smackAttack(tick)
 }
 
-func (g *Game) triggerEletricJelly() {
+func (g *Game) smackAttack(tick int) {
 	var chunks [][]*JellyFish
 	chunkLen := len(g.units.smack) / 4
 
@@ -151,22 +179,21 @@ func (g *Game) triggerEletricJelly() {
 	for _, s := range g.units.smack {
 		chunk = append(chunk, s)
 
-		if len(chunk) == chunkLen {
-			chunks = append(chunks, chunk)
-			chunk = nil
+		if len(chunk) != chunkLen {
+			continue
 		}
+
+		chunks = append(chunks, chunk)
+		chunk = nil
 	}
 
 	index := rand.IntN(len(chunks))
-	jellyAttackLimit := 20
 	count := 0
-	for i, s := range chunks[index] {
-		if i%2 == 0 && count < jellyAttackLimit {
+	jellyAttackLimit := 10
+	for _, j := range chunks[index] {
+		if count < jellyAttackLimit {
 			count++
-
-			go func() {
-				s.Attack()
-			}()
+			j.Attack(tick)
 		}
 	}
 }
@@ -183,7 +210,6 @@ func (g *Game) handleRemoveUnit(payload any) {
 	g.units.smack = slices.DeleteFunc(g.units.smack, func(e *JellyFish) bool {
 		return e.ID() == u.ID()
 	})
-
 }
 
 func (g *Game) Layout(_, _ int) (int, int) {

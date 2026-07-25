@@ -95,22 +95,22 @@ func (w *Wes) Handle(et EventType, payload any) {
 	case attackAnimationEnded:
 		w.state = unitStateWalk
 	case wesTakeDMG:
-		w.takeDMG()
+		w.takeDamage()
 	default:
 		return
 	}
 }
 
-func (w *Wes) takeDMG() {
+func (w *Wes) takeDamage() {
 	// TODO I need to implement the animation of tacking damage
 	// while the animation of damage is on wes should not take more damage
 	// like 1 or 2 seconds imune to dmg
 	w.life--
-	if w.life == 0 {
-		w.state = unitStateDead
-		// TODO implement animation of wes dieing
-		// currently when wes die he just vanish from the screen.
-	}
+	// if w.life == 0 {
+	// w.state = unitStateDead
+	// TODO implement animation of wes dieing
+	// currently when wes die he just vanish from the screen.
+	// }
 }
 
 // TODO: implement Draw user UI where will receive wes life
@@ -188,7 +188,6 @@ func (w *Wes) move() {
 	}
 
 	w.position = newPosition
-
 }
 
 func (w *Wes) Die(tick int) {}
@@ -214,8 +213,9 @@ func (w *Wes) Attack(tick int) []Unit {
 		for i := math.Max(newX0, 0); i <= math.Min(ax, screenWidth); i++ {
 			seenUnitID := unitsPositions[int(i)][int(k)]
 			if seenUnitID != -1 && w.id != seenUnitID {
-				seenUnit := units[seenUnitID]
-				unitsEaten = append(unitsEaten, seenUnit)
+				if seenUnit, ok := units[seenUnitID]; ok {
+					unitsEaten = append(unitsEaten, seenUnit)
+				}
 			}
 		}
 		newX0++
@@ -227,8 +227,9 @@ func (w *Wes) Attack(tick int) []Unit {
 		for i := math.Max(newX02, 0); i <= math.Min(ax, screenWidth); i++ {
 			seenUnitID := unitsPositions[int(i)][int(k)]
 			if seenUnitID != -1 && w.id != seenUnitID {
-				seenUnit := units[seenUnitID]
-				unitsEaten = append(unitsEaten, seenUnit)
+				if seenUnit, ok := units[seenUnitID]; ok {
+					unitsEaten = append(unitsEaten, seenUnit)
+				}
 			}
 		}
 

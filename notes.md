@@ -88,3 +88,37 @@ One sentence: keep one clock (`tick`), use it to index into a filmstrip (`SubIma
 ## Keyboard input
 
 Poll key state directly inside `Update` (which runs ~60x/sec) — don't push events through channels/goroutines (that races on position, stalls the loop, and `inpututil` only works when called from `Update`). Use `ebiten.IsKeyPressed(key)` for continuous hold-to-move (true every frame the key is down → move every frame; use separate `if`s not a `switch` so W+D can combine into a diagonal), and `inpututil.IsKeyJustPressed(key)` for discrete one-per-tap actions like attack. Remember `-Y` is up, assign vector results back (value receivers), and clamp position to the screen bounds.
+
+## Measuring time with ticks
+
+The tick is the only clock. `Update` runs ~60x/sec and does `g.tick++`, so **60 ticks = 1 second**. There's no wall clock — you convert ticks to seconds by dividing by 60.
+
+**Seconds since game start** (absolute) — divide the current tick:
+```go
+seconds := tick / 60   // tick=800 → 13s elapsed since the game began
+```
+
+**Seconds since a specific event** (relative) — you can't read time out of thin air, so at the moment the event happens you record the tick into a field (e.g. `g.tickWhenEletricJellyStarted = tick`). Later, subtract that from the current tick to get elapsed ticks, then divide:
+```go
+tickDiff   := tick - g.tickWhenEletricJellyStarted  // ticks since the event
+passedTime := tickDiff / 60                          // seconds since the event
+```
+
+**Fire something every N seconds** — modulo the RAW tick diff by `N*60`; only one tick in every `N*60` satisfies it, so it fires exactly once per boundary. Guard against the "event never started" case (stored tick still 0), otherwise it fires at boot:
+```go
+if tickDiff % (5*60) == 0 && g.tickWhenEletricJellyStarted != 0 {
+    // a 5-second boundary just passed — fires ONCE
+}
+```
+⚠️ Do NOT modulo `passedTime` (`tickDiff/60`): that value holds each second-number for a full 60 ticks, so `passedTime % 5 == 0` is true for all 60 ticks of the boundary second → your action fires ~60× per boundary, not once. Always modulo the raw ticks.
+
+Mental model: `tick` = an odometer (only ever counts up). Absolute time = read the odometer. Relative time = snapshot the odometer when the event fires, then read the difference later. `/60` turns ticks into seconds; `% N` turns seconds into a recurring N-second beat.
+
+### Recurring beat vs. one-shot duration (don't mix them up)
+
+| Goal | Shape | Check |
+|---|---|---|
+| "Fire something **every** N seconds" | recurring beat | `tickDiff % (N*60) == 0` |
+| "**Hold** a state **for** N seconds, then stop" | one-shot duration/deadline | `tickDiff >= N*60` |
+
+Both work off `tickDiff` and mention N, so they feel identical — the trap. `%` asks "is *now* an N-second boundary?" (true repeatedly, **including t=0**). `>=` asks "has N elapsed since the start?" (false, then true once). Using `>=` for a repeating beat fires forever after the first crossing; using `% == 0` for a duration is fatal: `0 % x == 0` is true, so the state ends the instant it begins. And always modulo the **raw** `tickDiff`, never `tickDiff/60` — the divided value is constant for 60 ticks, so it'd match 60 times per boundary instead of once.

@@ -22,6 +22,8 @@ func (js unitState) String() string {
 		return "walk"
 	case unitStateDead:
 		return "dead"
+	case unitStateAttack:
+		return "attack"
 	default:
 		return fmt.Sprintf("not mapped state - %d", js)
 	}
