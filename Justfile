@@ -4,7 +4,7 @@ ci:
 
 # Run all tests
 test:
-    "go test -timeout 180s ./...";
+    go test -timeout 180s ./...
 
 # Build a binary 
 build:
