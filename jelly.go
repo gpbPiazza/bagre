@@ -115,16 +115,9 @@ func (j *JellyFish) Attack(tick int) {
 // TODO adicionar tests para essa parada como um todo desde
 // comeu suficinete pro stage -> seta pro attack random -> acada 5 secs seleciona mais 10 random
 // por quatro segundos elas ficam em estado de atack
-// Não ta ficando o tempo que eu espero....
-func (j *JellyFish) gremio(tick int) {
+func (j *JellyFish) checkState(tick int) {
 	tickDiff := tick - j.tickStartAttack
 	hasPassedFourSeconds := tickDiff >= 4*60
-
-	j.logger.Info("jelly GREMIo",
-		"hasPassedFourSeconds", hasPassedFourSeconds,
-		"tickStartAttack", j.tickStartAttack,
-		"state", j.state.String(),
-	)
 
 	if j.state == unitStateAttack && j.tickStartAttack != 0 {
 		for _, unit := range j.unitsSeen(jellyAttackViewRadius) {
