@@ -75,7 +75,7 @@ func (g *Game) Update() error {
 	}
 	for _, j := range g.units.smack {
 		j.writeMove()
-		j.gremio(g.tick)
+		j.checkState(g.tick)
 	}
 
 	var underAttack []*JellyFish
@@ -154,6 +154,16 @@ func (g *Game) Handle(et EventType, payload any) {
 
 // stage checks what ever should happend given the stage that we are
 // currently we have stage 1 - eletricJellies,
+//
+// map 1
+// stages of map 1
+//
+//	0 - nothing passive jelly
+//	1 - eletric jelly
+//	2 - turtles in the map
+//	3 - shark attack
+//	4 - octopus hold
+//	5 - octopus boss
 func (g *Game) stage(tick int) {
 	tickDiff := tick - g.tickEletricJellyStart
 	// Fire ONCE per 5s boundary. tickDiff/60 holds each value for a whole

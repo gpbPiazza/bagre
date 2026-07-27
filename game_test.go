@@ -1,5 +1,54 @@
 package main
 
+import (
+	"testing"
+)
+
+func TestGame(t *testing.T) {
+	t.Run("Wes", func(t *testing.T) {
+		t.Run("move around", testWesMoves)
+		t.Run("attack", testWesAttack)
+		t.Run("life", testWesLife)
+	})
+
+	t.Run("Jellyfish", func(t *testing.T) {
+		t.Run("flocking", testSmackFlocking)
+		t.Run("flee wes", testSmackFleeWes)
+		t.Run("attack", testSmackAttack)
+		t.Run("death", testSmackDeath)
+	})
+
+	t.Run("Stages", func(t *testing.T) {
+		t.Run("electric jellyfish", testStageElectricJellyfish)
+	})
+}
+
+// running a real game populates the package-global units/unitsPositions;
+// restore them so this test can't leak state into others (e.g. TestNextMove).
+// t.Cleanup(func() {
+// 	units = make(map[int]Unit, 0)
+// 	unitsPositions = [screenWidth + 2][screenHeight + 2]int{}
+// })
+//
+// g := NewGame(nil)
+//
+// // pass 1 second in the game
+// for range 60 {
+// 	err := g.Update()
+// 	require.NoError(t, err)
+// }
+//
+// TODOS
+// - I need some way to simulate keys pressed under test
+
+// test arch rules
+// Every test should start a entire game
+// We must change the state of the game using game.Update method or
+// somulating user inputs
+// smack positions or wes positions it's ok to manipulate to test other cases.
+
+// asserts
+
 // func TestHandleEleticJellyFishs(t *testing.T) {
 // 	t.Run("every second jelly of one random chunk attacks, the rest keeps walking", func(t *testing.T) {
 // 		var smack []*JellyFish

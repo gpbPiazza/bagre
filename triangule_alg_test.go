@@ -1,8 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func Test_run_triangle(t *testing.T) {
@@ -61,35 +62,30 @@ func Test_run_triangle(t *testing.T) {
 	expectedZeroCount := 25
 	var zeroGot []int
 
-	fmt.Print("getting the upper part\n")
 	newX0 := x0
 	for k := y0; k >= ya; k-- {
 		for i := newX0; i <= xa; i++ {
 			val := grid[k][i]
 
-			fmt.Printf("visited x:%d y:%d - val:%d\n", i, k, val)
+			require.Zero(t, val, i)
 
 			zeroGot = append(zeroGot, val)
 
 		}
-		fmt.Print("===/===\n")
 
 		newX0++
 	}
 
-	fmt.Print("getting the lower part\n")
 	newY0 := y0 + 1
 	newX02 := x0 + 1
 	for k := newY0; k <= yb; k++ {
 		for i := newX02; i <= xa; i++ {
 			val := grid[k][i]
-
-			fmt.Printf("visited x:%d y:%d - val:%d\n", i, k, val)
+			require.Zero(t, val, i)
 
 			zeroGot = append(zeroGot, val)
 
 		}
-		fmt.Print("===/===\n")
 
 		newX02++
 	}
