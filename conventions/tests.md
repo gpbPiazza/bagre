@@ -12,34 +12,6 @@ Example: `nextMove` calls `calcAcceleration`, which calls `borderBounce`. Tests 
 - Every case is its own `t.Run` and has everything it needs to execute: its own setup, its own execution, its own assertions.
 - Each `t.Run` must not depend on any other `t.Run`. If a case needs many functions to execute, all of those executions go inside that one `t.Run`.
 
-## Structure: group by subject, declare case names before implementing
-
-- One top-level `TestGame` (in `game_test.go`) groups every test by subject — `Wes`, `Jellyfish`, `Stages`, etc. Each subject's `t.Run` fans out to one function per action/behavior on that subject (`testWesMoves`, `testWesAttack`, `testSmackFlocking`, ...), defined in that subject's own `_test.go` file (`wes_test.go`, `jelly_test.go`, ...).
-- Each of those functions holds every `t.Run` case for that one action — this is the "many cases" from the rule above, all living together.
-
-```go
-// game_test.go
-func TestGame(t *testing.T) {
-	t.Run("Wes", func(t *testing.T) {
-		t.Run("move around", testWesMoves)
-		t.Run("attack", testWesAttack)
-	})
-}
-
-// wes_test.go
-func testWesMoves(t *testing.T) {
-	t.Skip("TODO implement test")
-
-	t.Run("wes press W moves up", func(t *testing.T) {
-
-	})
-
-	t.Run("wes cannot move beyond the screen limits", func(t *testing.T) {
-
-	})
-}
-```
-
 ## Assertions: testify
 
 Use `github.com/stretchr/testify`:

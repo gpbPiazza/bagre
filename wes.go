@@ -9,14 +9,10 @@ import (
 	"math"
 	"os"
 
+	"github.com/gpbPiazza/bagre/pkg/log"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-)
-
-var (
-	attackWesImg *ebiten.Image
-	walkWesImg   *ebiten.Image
 )
 
 // conforme o wes for comendo os peixes ele fica maior
@@ -40,6 +36,8 @@ var (
 // jelly fish aleatorias ficam em estado de attack
 // caso wes coma elas ele toma dano.
 
+const wesSpeedRation = 2.0
+
 type Wes struct {
 	position              Vector2D
 	velocity              Vector2D
@@ -47,6 +45,8 @@ type Wes struct {
 	tickesWhenAttackState int
 	counter               *Counter
 	life                  int
+
+	imgs map[unitState]*ebiten.Image
 
 	state  unitState
 	logger *slog.Logger
@@ -58,6 +58,12 @@ func NewWes(
 	eventManager *EventManager,
 	c *Counter,
 ) *Wes {
+	imgs, err := loadWesImg()
+	if err != nil {
+		l.Error("failed to load wes imgs", log.Err(err))
+		panic(err)
+	}
+
 	w := &Wes{
 		position:              Vector2D{x: screenWidth / 2, y: screenHeight / 2},
 		velocity:              Vector2D{x: 1.0, y: 1.0},
@@ -67,6 +73,7 @@ func NewWes(
 		state:                 unitStateWalk,
 		logger:                l,
 		life:                  3,
+		imgs:                  imgs,
 	}
 
 	eventManager.subscribe(attackAnimationEnded, w)
@@ -78,11 +85,11 @@ func NewWes(
 func (w *Wes) Draw() (img *ebiten.Image, ticksWhenStateChanged, tickCountPerPose int, frameCount int) {
 	switch w.state {
 	case unitStateAttack:
-		return attackWesImg, w.tickesWhenAttackState, 6, 6
+		return w.imgs[w.state], w.tickesWhenAttackState, 6, 6
 	case unitStateWalk:
-		return walkWesImg, 0, 5, 4
+		return w.imgs[w.state], 0, 5, 4
 	default:
-		return walkWesImg, 0, 5, 4
+		return w.imgs[w.state], 0, 5, 4
 	}
 }
 
@@ -157,20 +164,18 @@ func (w *Wes) Scale() (float64, float64) {
 }
 
 func (w *Wes) move() {
-	const speed = 2.0
-
 	newPosition := w.position
-	if ebiten.IsKeyPressed(ebiten.KeyW) {
-		newPosition.y = w.position.SubY(speed).y
+	if isKeyPressed(ebiten.KeyW) {
+		newPosition.y = w.position.SubY(wesSpeedRation).y
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyS) {
-		newPosition.y = w.position.AddY(speed).y
+	if isKeyPressed(ebiten.KeyS) {
+		newPosition.y = w.position.AddY(wesSpeedRation).y
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyA) {
-		newPosition.x = w.position.SubX(speed).x
+	if isKeyPressed(ebiten.KeyA) {
+		newPosition.x = w.position.SubX(wesSpeedRation).x
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) {
-		newPosition.x = w.position.AddX(speed).x
+	if isKeyPressed(ebiten.KeyD) {
+		newPosition.x = w.position.AddX(wesSpeedRation).x
 	}
 
 	// 10 px visually good
@@ -268,30 +273,33 @@ func (w *Wes) DrawAttackHitBox(screen *ebiten.Image) {
 	vector.StrokeLine(screen, bx, by, cx, cy, 1, green, false) // B -> C
 }
 
-func loadWesImg() error {
+func loadWesImg() (map[unitState]*ebiten.Image, error) {
+	imgsByState := make(map[unitState]*ebiten.Image)
+
 	walk, err := os.ReadFile("./assets/wes/Walk.png")
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	walkImg, _, err := image.Decode(bytes.NewReader(walk))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	walkWesImg = ebiten.NewImageFromImage(walkImg)
+	walkWesImg := ebiten.NewImageFromImage(walkImg)
 
 	attack, err := os.ReadFile("./assets/wes/Attack.png")
 	if err != nil {
-		return err
+		return nil, err
 	}
-
 	attackImg, _, err := image.Decode(bytes.NewReader(attack))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	attackWesImg = ebiten.NewImageFromImage(attackImg)
+	attackWesImg := ebiten.NewImageFromImage(attackImg)
 
-	return nil
+	imgsByState[unitStateWalk] = walkWesImg
+	imgsByState[unitStateAttack] = attackWesImg
+
+	return imgsByState, nil
 }

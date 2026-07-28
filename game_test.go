@@ -1,28 +1,5 @@
 package main
 
-import (
-	"testing"
-)
-
-func TestGame(t *testing.T) {
-	t.Run("Wes", func(t *testing.T) {
-		t.Run("move around", testWesMoves)
-		t.Run("attack", testWesAttack)
-		t.Run("life", testWesLife)
-	})
-
-	t.Run("Jellyfish", func(t *testing.T) {
-		t.Run("flocking", testSmackFlocking)
-		t.Run("flee wes", testSmackFleeWes)
-		t.Run("attack", testSmackAttack)
-		t.Run("death", testSmackDeath)
-	})
-
-	t.Run("Stages", func(t *testing.T) {
-		t.Run("electric jellyfish", testStageElectricJellyfish)
-	})
-}
-
 // running a real game populates the package-global units/unitsPositions;
 // restore them so this test can't leak state into others (e.g. TestNextMove).
 // t.Cleanup(func() {

@@ -9,7 +9,6 @@ import (
 	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/image/font/gofont/goregular"
 )
@@ -90,7 +89,7 @@ func (g *Game) Update() error {
 
 	g.units.wes.move()
 
-	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+	if isKeyJustPressed(ebiten.KeySpace) {
 		g.units.unitsEaten = append(g.units.unitsEaten, g.units.wes.Attack(g.tick)...)
 	}
 

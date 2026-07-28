@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-func testStageElectricJellyfish(t *testing.T) {
+func TestStageElectricJellyfish(t *testing.T) {
 	t.Skip("TODO implement test")
 
 	t.Run("stage 1 begins once wes has eaten enough jellyfish", func(t *testing.T) {

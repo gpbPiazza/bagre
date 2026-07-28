@@ -28,12 +28,6 @@ func initGame(l *slog.Logger) int {
 		return 1
 	}
 
-	err = loadWesImg()
-	if err != nil {
-		l.Error("failed to load wes imgs", log.Err(err))
-		return 1
-	}
-
 	game := NewGame(l)
 
 	ebiten.SetWindowSize(game.ScreenWidth, game.ScreenWidth)

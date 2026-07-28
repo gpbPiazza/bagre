@@ -297,7 +297,7 @@ func (j *JellyFish) nextMove() {
 	j.nextPosition.y = math.Min(math.Max(j.nextPosition.y, 0), screenHeight)
 }
 
-func loadJellyImg() error {
+func loadJellyImg() (err error) {
 	jellyBytesPng, err := os.ReadFile("./assets/jellyfish/Walk.png")
 	if err != nil {
 		return err

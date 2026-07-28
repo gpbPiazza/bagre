@@ -6,12 +6,23 @@ import (
 	"log/slog"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 var (
 	unitsPositions = [screenWidth + 2][screenHeight + 2]int{}
 	// units is the collective noun for jellyFish
 	units = make(map[int]Unit, 0)
+
+	// isKeyPressed is just wrapper to help the test to mock user action.
+	isKeyPressed = func(key ebiten.Key) bool {
+		return ebiten.IsKeyPressed(key)
+	}
+
+	// isKeyJustPressed is just wrapper to help the test to mock user action.
+	isKeyJustPressed = func(key ebiten.Key) bool {
+		return inpututil.IsKeyJustPressed(key)
+	}
 )
 
 type unitState int
