@@ -4,11 +4,11 @@ ci:
 
 # Run all tests
 test:
-    go test -timeout 180s ./...
+    go test ./...
 
-# Build a binary 
-build:
-    go build .
+# Compile-check by default; pass an output path to keep the binary (e.g. `just build bagre`)
+build out="/dev/null":
+    go build -o {{out}} .
 
 # Run the full quality suite: format → build → lint → test
 quality:

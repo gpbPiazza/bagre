@@ -6,7 +6,9 @@
 
 @conventions/tests.md
 
-## Commands
+## Commands use Just
 
-- Run the game: `go run .`
-- Run tests: `go test ./...`
+See ./Justfile file for more
+
+- Run Full Quality suite: `Just quality`
+- Run tests: `Just test`
