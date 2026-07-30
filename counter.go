@@ -8,18 +8,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
-const counterFontSize = 24
-
-func NewCounter(jellyFishCount int, eventManager *EventManager) *Counter {
-	return &Counter{
-		unitsEaten:               0,
-		totalJellyFishCount:      jellyFishCount,
-		eventManager:             eventManager,
-		startEletricJelly:        20,
-		alreadyStartEletricJelly: false,
-	}
-}
-
 type Counter struct {
 	unitsEaten          int
 	totalJellyFishCount int
@@ -27,6 +15,16 @@ type Counter struct {
 	startEletricJelly   int
 
 	alreadyStartEletricJelly bool
+}
+
+func NewCounter(jellyFishCount int, eventManager *EventManager) *Counter {
+	return &Counter{
+		unitsEaten:               0,
+		totalJellyFishCount:      jellyFishCount,
+		eventManager:             eventManager,
+		startEletricJelly:        startEletricJellyAt,
+		alreadyStartEletricJelly: false,
+	}
 }
 
 func (c *Counter) Draw(screen *ebiten.Image) {
@@ -38,7 +36,7 @@ func (c *Counter) Draw(screen *ebiten.Image) {
 	}
 
 	op := &text.DrawOptions{}
-	op.GeoM.Translate(150, 10)
+	op.GeoM.Translate(counterPosX, counterPosY)
 	op.ColorScale.ScaleWithColor(color.White)
 
 	text.Draw(screen, msg, face, op)

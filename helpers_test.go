@@ -16,7 +16,7 @@ var isKeyPressedTest = func(t *testing.T, pressedKeys ...ebiten.Key) func(key eb
 
 var isKeyPressedEmptyState = func(t *testing.T) func(key ebiten.Key) bool {
 	t.Helper()
-	return func(key ebiten.Key) bool {
+	return func(_ ebiten.Key) bool {
 		return false
 	}
 }
@@ -30,9 +30,14 @@ var isKeyJustPressedTest = func(t *testing.T, pressedKeys ...ebiten.Key) func(ke
 
 var isKeyJustPressedEmptyState = func(t *testing.T) func(key ebiten.Key) bool {
 	t.Helper()
-	return func(key ebiten.Key) bool {
+	return func(_ ebiten.Key) bool {
 		return false
 	}
 }
 
 const testOneSec = 60
+
+// floatTolerance is the delta for require.InDelta position assertions: exact
+// float equality is fragile because the game accumulates movement tick by tick
+// while tests compute the expected value with a single multiplication.
+const floatTolerance = 0.001

@@ -25,13 +25,14 @@ type multiError interface {
 	Unwrap() []error
 }
 
-type errWithAttrs struct {
+type attrsError struct {
 	error
+
 	attrs []slog.Attr
 }
 
 func ErrWithAttrs(err error, args ...any) error {
-	return &errWithAttrs{
+	return &attrsError{
 		error: err,
 		attrs: argsToAttr(args),
 	}
@@ -64,11 +65,11 @@ func argsToAttr(args []any) []slog.Attr {
 	return attrs
 }
 
-func (e *errWithAttrs) Unwrap() error {
+func (e *attrsError) Unwrap() error {
 	return e.error
 }
 
-func (e *errWithAttrs) Attrs() []slog.Attr {
+func (e *attrsError) Attrs() []slog.Attr {
 	return e.attrs
 }
 

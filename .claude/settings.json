@@ -1,14 +1,21 @@
 {
   "hooks": {
     "SessionStart": [
-      { "hooks": [{ "type": "command", "command": "cat conventions/*.md" }] }
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat conventions/*.md"
+          }
+        ]
+      }
     ],
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "just ci >&2 || exit 2",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/quality-gate.sh\"",
             "timeout": 60
           }
         ]

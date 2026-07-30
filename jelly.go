@@ -3,31 +3,13 @@ package main
 import (
 	"bytes"
 	"image"
-	"image/color"
 	"log/slog"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-)
-
-const (
-	// How far a jelly senses neighbors. Keep it LOCAL: too big and every jelly
-	// sees the whole population, so cohesion's "average position" becomes the
-	// screen center and all of them collapse into one static blob. Small radius
-	// = many sub-groups that drift, split, and re-form (a living school).
-	// Lower bound: must exceed the drawn sprite size (48*0.5 = 24px) so a jelly
-	// senses a neighbor BEFORE their images overlap.
-	jellyViewRadius       = 20
-	jellyAttackViewRadius = 25
-
-	adjustRateAligment      = 0.15
-	adjustRateCohesion      = 0.09
-	adjustRateSeparation    = 0.30
-	adjustRateSeparationWes = 0.45
-	jellysCount             = 400
 )
 
 var (
@@ -51,13 +33,16 @@ type JellyFish struct {
 
 func newJellyFish(id int, l *slog.Logger, e *EventManager) *JellyFish {
 	b := &JellyFish{
-		position:     Vector2D{x: rand.Float64() * screenWidth, y: rand.Float64() * screenHeight},
-		velocity:     Vector2D{x: (rand.Float64() * 2) - 1.0, y: (rand.Float64() * 2) - 1.0},
-		id:           id,
-		state:        unitStateWalk,
-		logger:       l,
-		tickWhenDied: 0,
-		events:       e,
+		position:        Vector2D{x: rand.Float64() * screenWidth, y: rand.Float64() * screenHeight},
+		velocity:        Vector2D{x: (rand.Float64() * 2) - 1.0, y: (rand.Float64() * 2) - 1.0},
+		nextPosition:    Vector2D{x: 0, y: 0},
+		nextVelocity:    Vector2D{x: 0, y: 0},
+		id:              id,
+		state:           unitStateWalk,
+		logger:          l,
+		tickWhenDied:    0,
+		tickStartAttack: 0,
+		events:          e,
 	}
 	b.nextVelocity = b.velocity
 	b.nextPosition = b.position
@@ -68,13 +53,13 @@ func newJellyFish(id int, l *slog.Logger, e *EventManager) *JellyFish {
 func (j *JellyFish) Draw() (img *ebiten.Image, ticksWhenDead, tickCountPerPose int, frameCount int) {
 	switch j.state {
 	case unitStateWalk:
-		return jellyWalkImg, 0, 5, 4
+		return jellyWalkImg, 0, jellyWalkTicksPerPose, jellyWalkFrameCount
 	case unitStateDead:
-		return jellyDeathImg, j.tickWhenDied, 10, 6
+		return jellyDeathImg, j.tickWhenDied, jellyDeathTicksPerPose, jellyDeathFrameCount
 	case unitStateAttack:
-		return jellyAttackImg, 0, 5, 4
+		return jellyAttackImg, 0, jellyAttackTicksPerPose, jellyAttackFrameCount
 	default:
-		return jellyWalkImg, 0, 5, 4
+		return jellyWalkImg, 0, jellyWalkTicksPerPose, jellyWalkFrameCount
 	}
 }
 
@@ -117,7 +102,7 @@ func (j *JellyFish) Attack(tick int) {
 // por quatro segundos elas ficam em estado de atack
 func (j *JellyFish) checkState(tick int) {
 	tickDiff := tick - j.tickStartAttack
-	hasPassedFourSeconds := tickDiff >= 4*60
+	hasPassedFourSeconds := tickDiff >= jellyAttackDurationTicks
 
 	if j.state == unitStateAttack && j.tickStartAttack != 0 {
 		for _, unit := range j.unitsSeen(jellyAttackViewRadius) {
@@ -134,7 +119,6 @@ func (j *JellyFish) checkState(tick int) {
 }
 
 func (j *JellyFish) DrawAttackHitBox(s *ebiten.Image) {
-	green := color.RGBA{R: 0, G: 255, B: 0, A: 255}
 	vector.StrokeRect(
 		s,
 		float32(j.position.x-jellyAttackViewRadius),
@@ -142,7 +126,7 @@ func (j *JellyFish) DrawAttackHitBox(s *ebiten.Image) {
 		jellyAttackViewRadius*2,
 		jellyAttackViewRadius*2,
 		1,
-		green,
+		hitBoxGreen,
 		false,
 	)
 }
@@ -241,20 +225,19 @@ func (j *JellyFish) calcAcceleration() Vector2D {
 
 // Quanto mais próximo da borda mais rápido será o bounce
 func (j *JellyFish) borderBounce(pos, border float64) float64 {
-
 	// Está próximo da bater na borda, passou do limite de vistualização
 	// ou seja o passarinho viu a parede e irá mudar de direção
 	if pos < jellyViewRadius {
-		// Cap pos at 0.5: at pos <= 0 (already past the border) a raw 1/pos
+		// Cap pos: at pos <= 0 (already past the border) a raw 1/pos
 		// flips sign (or hits +Inf) and shoves the jelly further off-screen,
 		// so keep the push finite and always pointing back inside.
-		return 1 / math.Max(pos, 0.5)
+		return 1 / math.Max(pos, borderPushCap)
 	}
 	// Is the same thing but in the other side of the screenView
 	// o primeiro If é para o jelly que está próximo da parede em que X é muito pequeno
 	// Aqui o x é grande, o mesmo para Y.
 	if pos > border-jellyViewRadius {
-		return 1 / math.Min(pos-border, -0.5)
+		return 1 / math.Min(pos-border, -borderPushCap)
 	}
 
 	return 0
@@ -269,22 +252,17 @@ func (j *JellyFish) nextMove() {
 		return
 	}
 
-	minSpeed := 0.5
-	maxSpeed := 1.5
-
 	accel := j.calcAcceleration()
 
 	j.nextVelocity = j.velocity.Add(accel)
 
 	// Cruising speed: only change the LENGTH of velocity, never its direction.
-	// Floor (minSpeed) = never stall into a frozen blob.
-	// Ceiling (maxSpeed) = never blast off across the screen.
 	velocityMag := j.nextVelocity.Pythagoras()
-	if velocityMag < minSpeed {
-		j.nextVelocity = j.nextVelocity.ScaleToLength(minSpeed)
+	if velocityMag < jellyMinSpeed {
+		j.nextVelocity = j.nextVelocity.ScaleToLength(jellyMinSpeed)
 	}
-	if velocityMag > maxSpeed {
-		j.nextVelocity = j.nextVelocity.ScaleToLength(maxSpeed)
+	if velocityMag > jellyMaxSpeed {
+		j.nextVelocity = j.nextVelocity.ScaleToLength(jellyMaxSpeed)
 	}
 
 	j.nextPosition = j.position.Add(j.nextVelocity)

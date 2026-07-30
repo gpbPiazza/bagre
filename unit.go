@@ -15,14 +15,10 @@ var (
 	units = make(map[int]Unit, 0)
 
 	// isKeyPressed is just wrapper to help the test to mock user action.
-	isKeyPressed = func(key ebiten.Key) bool {
-		return ebiten.IsKeyPressed(key)
-	}
+	isKeyPressed = ebiten.IsKeyPressed
 
 	// isKeyJustPressed is just wrapper to help the test to mock user action.
-	isKeyJustPressed = func(key ebiten.Key) bool {
-		return inpututil.IsKeyJustPressed(key)
-	}
+	isKeyJustPressed = inpututil.IsKeyJustPressed
 )
 
 type unitState int
@@ -79,7 +75,6 @@ func NewUnits(
 	logger *slog.Logger,
 	counter *Counter,
 ) Units {
-
 	wes := NewWes(jellysCount+2, logger, eventManager, counter)
 
 	for i, row := range unitsPositions {
@@ -88,7 +83,7 @@ func NewUnits(
 		}
 	}
 
-	var smack []*JellyFish
+	smack := make([]*JellyFish, 0, jellysCount)
 	for i := range jellysCount {
 		jelly := newJellyFish(i, logger, eventManager)
 
@@ -163,7 +158,10 @@ func drawUnit(screen *ebiten.Image, unit Unit, tick int) {
 	// As g.tick advances over successive Draw calls, `i` steps 0→1→2→3→0…,
 	// so the sequence of stills played over time reads as animation.
 	cropRect := image.Rect(sx, sy, sx+frameWidth, sy+frameHeight)
-	walkFrame := img.SubImage(cropRect).(*ebiten.Image)
+	walkFrame, ok := img.SubImage(cropRect).(*ebiten.Image)
+	if !ok {
+		panic("SubImage of an *ebiten.Image must be an *ebiten.Image")
+	}
 
 	screen.DrawImage(walkFrame, op)
 }
@@ -175,5 +173,5 @@ func calcFrame(img image.Image, frameCount int) (width, height int) {
 
 	height = imgHeight
 	width = imgWidht / frameCount
-	return
+	return width, height
 }

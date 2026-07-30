@@ -96,13 +96,13 @@ func (v1 Vector2D) LimitVal(lower, uppper float64) Vector2D {
 }
 
 func (v1 Vector2D) Distance(v2 Vector2D) float64 {
-	xDif := math.Pow(v1.x-v2.x, 2)
-	yDif := math.Pow(v1.y-v2.y, 2)
+	xDif := (v1.x - v2.x) * (v1.x - v2.x)
+	yDif := (v1.y - v2.y) * (v1.y - v2.y)
 	return math.Sqrt(xDif + yDif)
 }
 
 func (v1 Vector2D) Pythagoras() float64 {
-	return math.Sqrt(math.Pow(v1.x, 2) + math.Pow(v1.y, 2))
+	return math.Sqrt(v1.x*v1.x + v1.y*v1.y)
 }
 
 // ScaleToLength keeps the vector's DIRECTION but sets its LENGTH to target.

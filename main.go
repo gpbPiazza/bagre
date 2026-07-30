@@ -6,19 +6,26 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/gpbPiazza/bagre/pkg/log"
 	"github.com/hajimehoshi/ebiten/v2"
+
+	"github.com/gpbPiazza/bagre/pkg/log"
 )
 
 func main() {
+	os.Exit(run())
+}
+
+// run exists so its defers execute before main reaches [os.Exit],
+// which would skip them.
+func run() int {
 	logger, lClose, err := log.InitLogger()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to initialize logger: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	defer func() { _ = lClose() }()
 
-	os.Exit(initGame(logger))
+	return initGame(logger)
 }
 
 func initGame(l *slog.Logger) int {
@@ -32,7 +39,7 @@ func initGame(l *slog.Logger) int {
 
 	ebiten.SetWindowSize(game.ScreenWidth, game.ScreenWidth)
 	ebiten.SetWindowTitle("Wes bagre")
-	if err := ebiten.RunGame(game); err != nil {
+	if err = ebiten.RunGame(game); err != nil {
 		l.Error("failed to run game", log.Err(err))
 		return 1
 	}

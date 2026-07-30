@@ -2,12 +2,12 @@ package main
 
 import "github.com/hajimehoshi/ebiten/v2"
 
-func NewUI(wes *Wes, counter *Counter) *UI {
-	return &UI{}
-}
-
 type UI struct {
 }
 
-func (u *UI) Draw(screen *ebiten.Image) {
+func NewUI(_ *Wes, _ *Counter) *UI {
+	return &UI{}
+}
+
+func (u *UI) Draw(_ *ebiten.Image) {
 }

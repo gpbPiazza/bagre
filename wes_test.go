@@ -30,11 +30,11 @@ func TestWesMoves(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.Equal(t, game.tick, testOneSec)
+		require.Equal(t, testOneSec, game.tick)
 		gotX, gotY := game.units.wes.Position()
 
-		require.Equal(t, startingX, gotX, "X position")
-		require.Equal(t, startingY-wesSpeedRation*testOneSec, gotY, "Y position")
+		require.InDelta(t, startingX, gotX, floatTolerance, "X position")
+		require.InDelta(t, startingY-wesSpeedRation*testOneSec, gotY, floatTolerance, "Y position")
 	})
 
 	t.Run("wes press S moves down", func(t *testing.T) {
@@ -51,11 +51,11 @@ func TestWesMoves(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.Equal(t, game.tick, testOneSec)
+		require.Equal(t, testOneSec, game.tick)
 		gotX, gotY := game.units.wes.Position()
 
-		require.Equal(t, startingX, gotX, "X position")
-		require.Equal(t, startingY+wesSpeedRation*testOneSec, gotY, "Y position")
+		require.InDelta(t, startingX, gotX, floatTolerance, "X position")
+		require.InDelta(t, startingY+wesSpeedRation*testOneSec, gotY, floatTolerance, "Y position")
 	})
 
 	t.Run("wes press A moves left", func(t *testing.T) {
@@ -72,11 +72,11 @@ func TestWesMoves(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.Equal(t, game.tick, testOneSec)
+		require.Equal(t, testOneSec, game.tick)
 		gotX, gotY := game.units.wes.Position()
 
-		require.Equal(t, startingX-wesSpeedRation*testOneSec, gotX, "X position")
-		require.Equal(t, startingY, gotY, "Y position")
+		require.InDelta(t, startingX-wesSpeedRation*testOneSec, gotX, floatTolerance, "X position")
+		require.InDelta(t, startingY, gotY, floatTolerance, "Y position")
 	})
 
 	t.Run("wes press D moves right", func(t *testing.T) {
@@ -93,11 +93,11 @@ func TestWesMoves(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.Equal(t, game.tick, testOneSec)
+		require.Equal(t, testOneSec, game.tick)
 		gotX, gotY := game.units.wes.Position()
 
-		require.Equal(t, startingX+wesSpeedRation*testOneSec, gotX, "X position")
-		require.Equal(t, startingY, gotY, "Y position")
+		require.InDelta(t, startingX+wesSpeedRation*testOneSec, gotX, floatTolerance, "X position")
+		require.InDelta(t, startingY, gotY, floatTolerance, "Y position")
 	})
 
 	t.Run("wes cannot move beyond the screen limits", func(t *testing.T) {
@@ -116,11 +116,11 @@ func TestWesMoves(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, game.tick, testOneSec)
+			require.Equal(t, testOneSec, game.tick)
 			gotX, gotY := game.units.wes.Position()
 
-			require.Equal(t, float64(screenWidth-10), gotX, "X clamped at the right border")
-			require.Equal(t, startingY, gotY, "Y position")
+			require.InDelta(t, float64(screenWidth-wesBorderMargin), gotX, floatTolerance, "X clamped at the right border")
+			require.InDelta(t, startingY, gotY, floatTolerance, "Y position")
 		})
 
 		t.Run("pressing A stops at the left border", func(t *testing.T) {
@@ -140,11 +140,11 @@ func TestWesMoves(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, game.tick, testOneSec)
+			require.Equal(t, testOneSec, game.tick)
 			gotX, gotY := game.units.wes.Position()
 
-			require.Equal(t, float64(10), gotX, "X clamped at the left border")
-			require.Equal(t, startingY, gotY, "Y position")
+			require.InDelta(t, float64(wesBorderMargin), gotX, floatTolerance, "X clamped at the left border")
+			require.InDelta(t, startingY, gotY, floatTolerance, "Y position")
 		})
 
 		t.Run("pressing W stops at the top border", func(t *testing.T) {
@@ -164,11 +164,11 @@ func TestWesMoves(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, game.tick, testOneSec)
+			require.Equal(t, testOneSec, game.tick)
 			gotX, gotY := game.units.wes.Position()
 
-			require.Equal(t, startingX, gotX, "X position")
-			require.Equal(t, float64(10), gotY, "Y clamped at the top border")
+			require.InDelta(t, startingX, gotX, floatTolerance, "X position")
+			require.InDelta(t, float64(wesBorderMargin), gotY, floatTolerance, "Y clamped at the top border")
 		})
 
 		t.Run("pressing S stops at the bottom border", func(t *testing.T) {
@@ -188,11 +188,11 @@ func TestWesMoves(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, game.tick, testOneSec)
+			require.Equal(t, testOneSec, game.tick)
 			gotX, gotY := game.units.wes.Position()
 
-			require.Equal(t, startingX, gotX, "X position")
-			require.Equal(t, float64(screenHeight-10), gotY, "Y clamped at the bottom border")
+			require.InDelta(t, startingX, gotX, floatTolerance, "X position")
+			require.InDelta(t, float64(screenHeight-wesBorderMargin), gotY, floatTolerance, "Y clamped at the bottom border")
 		})
 	})
 
@@ -214,11 +214,11 @@ func TestWesMoves(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, game.tick, testOneSec)
+			require.Equal(t, testOneSec, game.tick)
 			gotX, gotY := game.units.wes.Position()
 
-			require.Equal(t, startingX+wesSpeedRation*testOneSec, gotX, "X position")
-			require.Equal(t, startingY-wesSpeedRation*testOneSec, gotY, "Y position")
+			require.InDelta(t, startingX+wesSpeedRation*testOneSec, gotX, floatTolerance, "X position")
+			require.InDelta(t, startingY-wesSpeedRation*testOneSec, gotY, floatTolerance, "Y position")
 		})
 
 		t.Run("wes press W+A moves up and left", func(t *testing.T) {
@@ -238,11 +238,11 @@ func TestWesMoves(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, game.tick, testOneSec)
+			require.Equal(t, testOneSec, game.tick)
 			gotX, gotY := game.units.wes.Position()
 
-			require.Equal(t, startingX-wesSpeedRation*testOneSec, gotX, "X position")
-			require.Equal(t, startingY-wesSpeedRation*testOneSec, gotY, "Y position")
+			require.InDelta(t, startingX-wesSpeedRation*testOneSec, gotX, floatTolerance, "X position")
+			require.InDelta(t, startingY-wesSpeedRation*testOneSec, gotY, floatTolerance, "Y position")
 		})
 
 		t.Run("wes press S+D moves down and right", func(t *testing.T) {
@@ -262,11 +262,11 @@ func TestWesMoves(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, game.tick, testOneSec)
+			require.Equal(t, testOneSec, game.tick)
 			gotX, gotY := game.units.wes.Position()
 
-			require.Equal(t, startingX+wesSpeedRation*testOneSec, gotX, "X position")
-			require.Equal(t, startingY+wesSpeedRation*testOneSec, gotY, "Y position")
+			require.InDelta(t, startingX+wesSpeedRation*testOneSec, gotX, floatTolerance, "X position")
+			require.InDelta(t, startingY+wesSpeedRation*testOneSec, gotY, floatTolerance, "Y position")
 		})
 
 		t.Run("wes press S+A moves down and left", func(t *testing.T) {
@@ -286,14 +286,13 @@ func TestWesMoves(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, game.tick, testOneSec)
+			require.Equal(t, testOneSec, game.tick)
 			gotX, gotY := game.units.wes.Position()
 
-			require.Equal(t, startingX-wesSpeedRation*testOneSec, gotX, "X position")
-			require.Equal(t, startingY+wesSpeedRation*testOneSec, gotY, "Y position")
+			require.InDelta(t, startingX-wesSpeedRation*testOneSec, gotX, floatTolerance, "X position")
+			require.InDelta(t, startingY+wesSpeedRation*testOneSec, gotY, floatTolerance, "Y position")
 		})
 	})
-
 }
 
 func TestWesAttack(t *testing.T) {
@@ -459,6 +458,6 @@ func TestWesAttack(t *testing.T) {
 func TestWesLife(t *testing.T) {
 	t.Skip("TODO implement test")
 
-	t.Run("wes loses a life when touched by an attacking jellyfish", func(t *testing.T) {
+	t.Run("wes loses a life when touched by an attacking jellyfish", func(_ *testing.T) {
 	})
 }

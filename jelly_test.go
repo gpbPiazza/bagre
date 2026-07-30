@@ -110,15 +110,15 @@ func TestNextMove(t *testing.T) {
 func TestSmackFlocking(t *testing.T) {
 	t.Skip("TODO implement test")
 
-	t.Run("jellyfish group up, match direction, and keep distance from close neighbors", func(t *testing.T) {
+	t.Run("jellyfish group up, match direction, and keep distance from close neighbors", func(_ *testing.T) {
 
 	})
 
-	t.Run("jellyfish never stop moving", func(t *testing.T) {
+	t.Run("jellyfish never stop moving", func(_ *testing.T) {
 
 	})
 
-	t.Run("jellyfish never move faster than their cruising speed", func(t *testing.T) {
+	t.Run("jellyfish never move faster than their cruising speed", func(_ *testing.T) {
 
 	})
 }
@@ -126,7 +126,7 @@ func TestSmackFlocking(t *testing.T) {
 func TestSmackFleeWes(t *testing.T) {
 	t.Skip("TODO implement test")
 
-	t.Run("jellyfish flee from wes when he gets close", func(t *testing.T) {
+	t.Run("jellyfish flee from wes when he gets close", func(_ *testing.T) {
 
 	})
 }
@@ -134,19 +134,19 @@ func TestSmackFleeWes(t *testing.T) {
 func TestSmackAttack(t *testing.T) {
 	t.Skip("TODO implement test")
 
-	t.Run("jellyfish can enter an attack state", func(t *testing.T) {
+	t.Run("jellyfish can enter an attack state", func(_ *testing.T) {
 
 	})
 
-	t.Run("touching wes while attacking damages him", func(t *testing.T) {
+	t.Run("touching wes while attacking damages him", func(_ *testing.T) {
 
 	})
 
-	t.Run("attack state reverts to normal after a while", func(t *testing.T) {
+	t.Run("attack state reverts to normal after a while", func(_ *testing.T) {
 
 	})
 
-	t.Run("no more than a limited number of jellyfish attack at the same time", func(t *testing.T) {
+	t.Run("no more than a limited number of jellyfish attack at the same time", func(_ *testing.T) {
 
 	})
 }
@@ -154,7 +154,7 @@ func TestSmackAttack(t *testing.T) {
 func TestSmackDeath(t *testing.T) {
 	t.Skip("TODO implement test")
 
-	t.Run("eaten jellyfish play a death animation before disappearing", func(t *testing.T) {
+	t.Run("eaten jellyfish play a death animation before disappearing", func(_ *testing.T) {
 
 	})
 }

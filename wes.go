@@ -9,10 +9,11 @@ import (
 	"math"
 	"os"
 
-	"github.com/gpbPiazza/bagre/pkg/log"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+
+	"github.com/gpbPiazza/bagre/pkg/log"
 )
 
 // conforme o wes for comendo os peixes ele fica maior
@@ -35,8 +36,6 @@ import (
 //
 // jelly fish aleatorias ficam em estado de attack
 // caso wes coma elas ele toma dano.
-
-const wesSpeedRation = 2.0
 
 type Wes struct {
 	position              Vector2D
@@ -72,7 +71,7 @@ func NewWes(
 		counter:               c,
 		state:                 unitStateWalk,
 		logger:                l,
-		life:                  3,
+		life:                  wesStartingLife,
 		imgs:                  imgs,
 	}
 
@@ -85,11 +84,11 @@ func NewWes(
 func (w *Wes) Draw() (img *ebiten.Image, ticksWhenStateChanged, tickCountPerPose int, frameCount int) {
 	switch w.state {
 	case unitStateAttack:
-		return w.imgs[w.state], w.tickesWhenAttackState, 6, 6
+		return w.imgs[w.state], w.tickesWhenAttackState, wesAttackTicksPerPose, wesAttackFrameCount
 	case unitStateWalk:
-		return w.imgs[w.state], 0, 5, 4
+		return w.imgs[w.state], 0, wesWalkTicksPerPose, wesWalkFrameCount
 	default:
-		return w.imgs[w.state], 0, 5, 4
+		return w.imgs[w.state], 0, wesWalkTicksPerPose, wesWalkFrameCount
 	}
 }
 
@@ -97,7 +96,7 @@ func (w *Wes) Position() (float64, float64) {
 	return w.position.x, w.position.y
 }
 
-func (w *Wes) Handle(et EventType, payload any) {
+func (w *Wes) Handle(et EventType, _ any) {
 	switch et {
 	case attackAnimationEnded:
 		w.state = unitStateWalk
@@ -124,7 +123,7 @@ func (w *Wes) takeDamage() {
 // and counter as depency and draw a betiuful ui of wes spells life and icons
 
 func (w *Wes) DrawLife(screen *ebiten.Image) {
-	msg := fmt.Sprintf("Vida: %d/3", w.life)
+	msg := fmt.Sprintf("Vida: %d/%d", w.life, wesStartingLife)
 
 	face := &text.GoTextFace{
 		Source: textFont,
@@ -132,7 +131,7 @@ func (w *Wes) DrawLife(screen *ebiten.Image) {
 	}
 
 	op := &text.DrawOptions{}
-	op.GeoM.Translate(10, 10)
+	op.GeoM.Translate(wesLifePosX, wesLifePosY)
 	op.ColorScale.ScaleWithColor(color.White)
 
 	text.Draw(screen, msg, face, op)
@@ -178,24 +177,23 @@ func (w *Wes) move() {
 		newPosition.x = w.position.AddX(wesSpeedRation).x
 	}
 
-	// 10 px visually good
-	if newPosition.x > screenWidth-10 {
-		newPosition.x = screenWidth - 10
+	if newPosition.x > screenWidth-wesBorderMargin {
+		newPosition.x = screenWidth - wesBorderMargin
 	}
-	if newPosition.x < 10 {
-		newPosition.x = 10
+	if newPosition.x < wesBorderMargin {
+		newPosition.x = wesBorderMargin
 	}
-	if newPosition.y > screenHeight-10 {
-		newPosition.y = screenHeight - 10
+	if newPosition.y > screenHeight-wesBorderMargin {
+		newPosition.y = screenHeight - wesBorderMargin
 	}
-	if newPosition.y < 10 {
-		newPosition.y = 10
+	if newPosition.y < wesBorderMargin {
+		newPosition.y = wesBorderMargin
 	}
 
 	w.position = newPosition
 }
 
-func (w *Wes) Die(tick int) {}
+func (w *Wes) Die(_ int) {}
 
 func (w *Wes) IsPlayer() bool { return true }
 
@@ -208,37 +206,25 @@ func (w *Wes) Attack(tick int) []Unit {
 	w.tickesWhenAttackState = tick
 
 	const n = 50
-	ax, ay := float64(w.position.x+n), float64(w.position.y-n)
-	_, by := float64(w.position.x+n), float64(w.position.y+n)
-	cx, cy := float64(w.position.x), float64(w.position.y)
+	ax, ay := w.position.x+n, w.position.y-n
+	by := w.position.y + n
+	cx, cy := w.position.x, w.position.y
 
 	var unitsEaten []Unit
-	newX0 := cx
+
+	// Upper half of the triangle: from C's row up to A's row, each row
+	// starting one column further right so the edge C->A stays diagonal.
+	x0 := cx
 	for k := math.Min(cy, screenHeight); k >= math.Max(ay, 0); k-- {
-		for i := math.Max(newX0, 0); i <= math.Min(ax, screenWidth); i++ {
-			seenUnitID := unitsPositions[int(i)][int(k)]
-			if seenUnitID != -1 && w.id != seenUnitID {
-				if seenUnit, ok := units[seenUnitID]; ok {
-					unitsEaten = append(unitsEaten, seenUnit)
-				}
-			}
-		}
-		newX0++
+		unitsEaten = append(unitsEaten, w.unitsInRow(k, x0, ax)...)
+		x0++
 	}
 
-	newY0 := cy + 1
-	newX02 := cx + 1
-	for k := math.Max(newY0, 0); k <= math.Min(by, screenHeight); k++ {
-		for i := math.Max(newX02, 0); i <= math.Min(ax, screenWidth); i++ {
-			seenUnitID := unitsPositions[int(i)][int(k)]
-			if seenUnitID != -1 && w.id != seenUnitID {
-				if seenUnit, ok := units[seenUnitID]; ok {
-					unitsEaten = append(unitsEaten, seenUnit)
-				}
-			}
-		}
-
-		newX02++
+	// Lower half: from the row below C down to B's row, same shrinking rows.
+	x0 = cx + 1
+	for k := math.Max(cy+1, 0); k <= math.Min(by, screenHeight); k++ {
+		unitsEaten = append(unitsEaten, w.unitsInRow(k, x0, ax)...)
+		x0++
 	}
 
 	w.counter.Add(len(unitsEaten))
@@ -246,11 +232,28 @@ func (w *Wes) Attack(tick int) []Unit {
 	return unitsEaten
 }
 
+// unitsInRow collects every unit on grid row k between columns fromX and toX
+// (clamped to the screen), skipping empty cells and wes himself.
+func (w *Wes) unitsInRow(k, fromX, toX float64) []Unit {
+	var found []Unit
+	for i := math.Max(fromX, 0); i <= math.Min(toX, screenWidth); i++ {
+		seenUnitID := unitsPositions[int(i)][int(k)]
+		if seenUnitID == -1 || w.id == seenUnitID {
+			continue
+		}
+		if seenUnit, ok := units[seenUnitID]; ok {
+			found = append(found, seenUnit)
+		}
+	}
+
+	return found
+}
+
 // DrawAttackHitBox is a TEMP debug helper: it outlines Wes's attack range as a
 // green square (2*wesViewRadius on a side, centered on Wes). Delete when done.
 func (w *Wes) DrawAttackHitBox(screen *ebiten.Image) {
+	green := hitBoxGreen
 	// Square hit box
-	green := color.RGBA{R: 0, G: 255, B: 0, A: 255}
 	// vector.StrokeRect(
 	// 	screen,
 	// 	float32(w.position.x-wesViewRadius),

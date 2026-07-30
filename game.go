@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"image/color"
 	"log/slog"
 	"math/rand/v2"
 	"os"
@@ -13,12 +12,7 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 )
 
-const (
-	screenWidth, screenHeight = 950, 550
-)
-
 var (
-	darkGrey = color.RGBA{R: 40, G: 45, B: 60, A: 255}
 	// counterFaceSource holds the parsed font; parsing is expensive so it
 	// happens once at init, never inside Draw.
 	// TODO create a system start up
@@ -51,13 +45,15 @@ func NewGame(l *slog.Logger) *Game {
 	gUnits := NewUnits(eventManager, l, counter)
 
 	g := &Game{
-		ScreenWidth:   screenWidth,
-		ScreenHeight:  screenHeight,
-		units:         gUnits,
-		evenetManager: eventManager,
-		DrawHitBox:    os.Getenv("DRAW_HIT_BOX") != "",
-		counter:       counter,
-		logger:        l,
+		ScreenWidth:           screenWidth,
+		ScreenHeight:          screenHeight,
+		tick:                  0,
+		tickEletricJellyStart: 0,
+		units:                 gUnits,
+		evenetManager:         eventManager,
+		DrawHitBox:            os.Getenv("DRAW_HIT_BOX") != "",
+		counter:               counter,
+		logger:                l,
 	}
 
 	eventManager.subscribe(removeUnit, g)
@@ -83,7 +79,7 @@ func (g *Game) Update() error {
 			underAttack = append(underAttack, j)
 		}
 	}
-	if len(underAttack) > 10 {
+	if len(underAttack) > maxAttackingJellys {
 		panic("we have more jelly under attack them expected")
 	}
 
@@ -165,14 +161,14 @@ func (g *Game) Handle(et EventType, payload any) {
 //	5 - octopus boss
 func (g *Game) stage(tick int) {
 	tickDiff := tick - g.tickEletricJellyStart
-	// Fire ONCE per 5s boundary. tickDiff/60 holds each value for a whole
-	// second, so `% 5` on it would be true for all 60 ticks of that second and
-	// call smackAttack 60x per boundary — each pass selecting a new random
-	// chunk, blowing past the 10-attacker cap. Modulo the RAW tick count
-	// instead: only one tick in every 300 (5*60) satisfies this.
-	hasPassedFiveSeconds := tickDiff > 0 && tickDiff%(5*60) == 0
+	// Fire ONCE per interval boundary. tickDiff/60 holds each value for a whole
+	// second, so a modulo on it would be true for all 60 ticks of that second
+	// and call smackAttack 60x per boundary — each pass selecting a new random
+	// chunk, blowing past the attacker cap. Modulo the RAW tick count instead:
+	// only one tick per interval satisfies this.
+	hasPassedFiveSeconds := tickDiff > 0 && tickDiff%eletricAttackIntervalTicks == 0
 
-	if !(hasPassedFiveSeconds && g.tickEletricJellyStart != 0) {
+	if !hasPassedFiveSeconds || g.tickEletricJellyStart == 0 {
 		return
 	}
 
@@ -182,7 +178,7 @@ func (g *Game) stage(tick int) {
 
 func (g *Game) smackAttack(tick int) {
 	var chunks [][]*JellyFish
-	chunkLen := len(g.units.smack) / 4
+	chunkLen := len(g.units.smack) / smackChunkCount
 
 	var chunk []*JellyFish
 	for _, s := range g.units.smack {
@@ -198,9 +194,8 @@ func (g *Game) smackAttack(tick int) {
 
 	index := rand.IntN(len(chunks))
 	count := 0
-	jellyAttackLimit := 10
 	for _, j := range chunks[index] {
-		if count < jellyAttackLimit {
+		if count < maxAttackingJellys {
 			count++
 			j.Attack(tick)
 		}

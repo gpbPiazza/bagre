@@ -10,13 +10,12 @@ import (
 	"github.com/lmittmann/tint"
 )
 
-type closeFunc func() error
+// CloseFunc flushes and releases every resource the logger owns.
+type CloseFunc func() error
 
-func InitLogger() (*slog.Logger, closeFunc, error) {
-	var (
-		handlers []slog.Handler
-		closers  []closeFunc
-	)
+func InitLogger() (*slog.Logger, CloseFunc, error) {
+	handlers := make([]slog.Handler, 0, 1)
+	var closers []CloseFunc
 
 	// handlers = append(handlers, slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
 	// 	ReplaceAttr: replaceAttr,
@@ -26,8 +25,8 @@ func InitLogger() (*slog.Logger, closeFunc, error) {
 		ReplaceAttr: replaceAttr,
 	}))
 
-	close := func() error {
-		var errs []error
+	closeAll := func() error {
+		errs := make([]error, 0, len(closers))
 		for _, closer := range closers {
 			errs = append(errs, closer())
 		}
@@ -36,17 +35,17 @@ func InitLogger() (*slog.Logger, closeFunc, error) {
 
 	logger := slog.New(slog.NewMultiHandler(handlers...))
 
-	return logger, close, nil
+	return logger, closeAll, nil
 }
 
-func replaceAttr(groups []string, a slog.Attr) slog.Attr {
+func replaceAttr(_ []string, a slog.Attr) slog.Attr {
 	if a.Key == errorKey {
 		err, ok := a.Value.Any().(error)
 		if !ok {
 			return a
 		}
 
-		if multiErr, ok := errors.AsType[multiError](err); ok {
+		if multiErr, isMulti := errors.AsType[multiError](err); isMulti {
 			var errAttrs []slog.Attr
 			for i, e := range multiErr.Unwrap() {
 				errAttrs = append(errAttrs,

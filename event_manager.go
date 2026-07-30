@@ -24,7 +24,7 @@ func NewEventManager() *EventManager {
 	}
 }
 
-func (a *EventManager) PublishByID(et EventType, payload any, id int) {
+func (a *EventManager) PublishByID(_ EventType, _ any, _ int) {
 	panic("not implemented")
 }
 
