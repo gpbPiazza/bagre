@@ -27,7 +27,7 @@ quality:
 lint:
     golangci-lint run ./...
 
-# Auto‑format & fix lint issues for the entire project
+# Auto‑format the entire project
 format:
-    golangci-lint run --fix ./... && golangci-lint fmt ./...
+    golangci-lint fmt ./...
 

@@ -1,12 +1,15 @@
 # Testing Conventions
 
+## HARD RULE: tests never touch production code
+
+Implementing a test means changing `_test.go` files **only**. Never add getters, helpers, seams, or any other production code to make a test easier to write. Tests live in `package main`.
+
 ## Start a whole game, drive it through ticks
 
 Every test starts a real game and changes its state the way the game does — by advancing ticks and simulating input — never by hand-building internals.
 
 - Build the game: `game := NewGame(slog.Default())`.
 - Advance state by looping `game.Update()` (one call = one tick, ~1/60s). `testOneSec` = 60 ticks.
-- Read outcomes from **public getters** (`Position()`, `State()`), not from intermediate computed fields.
 
 Setting up a scenario by manipulating package state directly is fine (tests live in `package main`): assign `game.units.wes.position`, reset the global `units` map, place jellyfish, call `rebuildGrid()`. Anything you mutate, restore in `t.Cleanup` (see below).
 
@@ -45,6 +48,8 @@ External input is wrapped in swappable package vars (`isKeyPressed`, `isKeyJustP
 isKeyPressed = isKeyPressedTest(t, ebiten.KeyW)
 t.Cleanup(func() { isKeyPressed = isKeyPressedEmptyState(t) })
 ```
+
+Only mock what the case actually uses: a test that never simulates a key press must not swap `isKeyPressed`/`isKeyJustPressed` at all — the swap and restore lines are pure noise there.
 
 Those helpers (`isKeyPressedTest` / `isKeyPressedEmptyState`, `isKeyJustPressedTest` / `isKeyJustPressedEmptyState`) and shared constants like `testOneSec` live in `helpers_test.go`. Put anything reused across test files there, not inline in a single `_test.go`.
 

@@ -14,8 +14,6 @@ import (
 // y=-2.18 got a bounce (1/pos with pos<0) pushing it further off-screen
 // every frame instead of back in.
 func TestNextMove(t *testing.T) {
-	t.Skip("I'm refactoring the architecture")
-
 	t.Run("out of screen above recovers (panic log frame)", func(t *testing.T) {
 		require.Empty(t, units, "no other unit may influence the acceleration")
 

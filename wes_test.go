@@ -309,12 +309,10 @@ func TestWesAttack(t *testing.T) {
 	//     j j j j j j j j j                        j j j j j x x x x
 	//     j j j j j j j j j                        j j j j j j x x x
 	t.Run("wes attack has a triangle hit box", func(t *testing.T) {
-		// wes stays put (no movement keys) and space is "just pressed" for the
-		// single tick we run, so Update fires exactly one attack.
-		isKeyPressed = isKeyPressedEmptyState(t)
+		// space is "just pressed" for the single tick we run, so Update fires
+		// exactly one attack.
 		isKeyJustPressed = isKeyJustPressedTest(t, ebiten.KeySpace)
 		t.Cleanup(func() {
-			isKeyPressed = isKeyPressedEmptyState(t)
 			isKeyJustPressed = isKeyJustPressedEmptyState(t)
 			units = make(map[int]Unit, 0)
 		})
@@ -406,13 +404,6 @@ func TestWesAttack(t *testing.T) {
 		_, _, tickCountPerPose, frameCount := game.units.wes.Draw()
 		attackAnimationTicks := tickCountPerPose * frameCount
 
-		isKeyPressed = isKeyPressedEmptyState(t)
-		isKeyJustPressed = isKeyJustPressedEmptyState(t)
-		t.Cleanup(func() {
-			isKeyPressed = isKeyPressedEmptyState(t)
-			isKeyJustPressed = isKeyJustPressedEmptyState(t)
-		})
-
 		for tick := 1; tick <= attackAnimationTicks; tick++ {
 			err := game.Update()
 			require.NoError(t, err)
@@ -452,12 +443,5 @@ func TestWesAttack(t *testing.T) {
 		game.units.wes.Attack(game.tick)
 
 		assert.Equal(t, eaten, game.counter.unitsEaten, "every eaten jellyfish counts toward wes total")
-	})
-}
-
-func TestWesLife(t *testing.T) {
-	t.Skip("TODO implement test")
-
-	t.Run("wes loses a life when touched by an attacking jellyfish", func(_ *testing.T) {
 	})
 }
