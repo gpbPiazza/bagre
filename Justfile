@@ -1,7 +1,3 @@
-ci:
-    go test ./...
-
-
 # Run all tests
 test:
     go test ./...
