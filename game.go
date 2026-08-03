@@ -97,6 +97,8 @@ func (g *Game) Update() error {
 		checkState(u, g.tick, g.evenetManager)
 	}
 
+	g.units.wes.checkState(g.tick)
+
 	checkState(g.units.wes, g.tick, g.evenetManager)
 
 	// TODO create a struct reponsiable to deal with
@@ -152,6 +154,12 @@ func (g *Game) Handle(et EventType, payload any) {
 //
 // map 1
 // stages of map 1
+// Make something COOL when a stage start, like
+// the entire game slow down and we get something awsome in the screen shwoing
+// stage 1 started, with miniMap of stages.
+//
+// miniMap like:
+// thunder --- turtle shield --- shark bite --- octopus hand --- octopus EYE
 //
 //	0 - nothing passive jelly
 //	1 - eletric jelly
@@ -172,7 +180,6 @@ func (g *Game) stage(tick int) {
 		return
 	}
 
-	g.logger.Info("passed 5 seconds trigger eletric Smack")
 	g.smackAttack(tick)
 }
 

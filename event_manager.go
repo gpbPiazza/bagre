@@ -10,6 +10,7 @@ const (
 	animationEnded EventType = iota
 	removeUnit
 	attackAnimationEnded
+	hurtAnimationEnded
 	startEletricJellyFishs
 	wesTakeDMG
 )

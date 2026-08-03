@@ -21,6 +21,12 @@ const (
 	wesAttackFrameCount   = 6
 	wesWalkTicksPerPose   = 5
 	wesWalkFrameCount     = 4
+
+	wesHurtTicksPerPose = 20
+	wesHurtFrameCount   = 2
+
+	// how long wes stays in hurt state
+	wesHurtDurationTicks = 2 * ticksPerSecond
 )
 
 // JellyFish flocking

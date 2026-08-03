@@ -11,8 +11,7 @@ import (
 
 var (
 	unitsPositions = [screenWidth + 2][screenHeight + 2]int{}
-	// units is the collective noun for jellyFish
-	units = make(map[int]Unit, 0)
+	units          = make(map[int]Unit, 0)
 
 	// isKeyPressed is just wrapper to help the test to mock user action.
 	isKeyPressed = ebiten.IsKeyPressed
@@ -31,6 +30,8 @@ func (js unitState) String() string {
 		return "dead"
 	case unitStateAttack:
 		return "attack"
+	case unitStateHurt:
+		return "hurt"
 	default:
 		return fmt.Sprintf("not mapped state - %d", js)
 	}
@@ -40,6 +41,7 @@ const (
 	unitStateWalk unitState = iota
 	unitStateAttack
 	unitStateDead
+	unitStateHurt
 )
 
 type Unit interface {

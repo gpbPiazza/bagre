@@ -91,8 +91,6 @@ func (j *JellyFish) Attack(tick int) {
 	if j.state == unitStateAttack {
 		return
 	}
-
-	j.logger.Info("SETTING JELLY TO ATTACK")
 	j.tickStartAttack = tick
 	j.state = unitStateAttack
 }
@@ -107,7 +105,7 @@ func (j *JellyFish) checkState(tick int) {
 	if j.state == unitStateAttack && j.tickStartAttack != 0 {
 		for _, unit := range j.unitsSeen(jellyAttackViewRadius) {
 			if unit.IsPlayer() {
-				j.events.Publish(wesTakeDMG, nil)
+				j.events.Publish(wesTakeDMG, tick)
 			}
 		}
 	}

@@ -42,6 +42,7 @@ type Wes struct {
 	velocity              Vector2D
 	id                    int
 	tickesWhenAttackState int
+	tickesWhenHurtState   int
 	counter               *Counter
 	life                  int
 
@@ -68,6 +69,7 @@ func NewWes(
 		velocity:              Vector2D{x: 1.0, y: 1.0},
 		id:                    id,
 		tickesWhenAttackState: 0,
+		tickesWhenHurtState:   0,
 		counter:               c,
 		state:                 unitStateWalk,
 		logger:                l,
@@ -77,7 +79,6 @@ func NewWes(
 
 	eventManager.subscribe(attackAnimationEnded, w)
 	eventManager.subscribe(wesTakeDMG, w)
-
 	return w
 }
 
@@ -87,6 +88,8 @@ func (w *Wes) Draw() (img *ebiten.Image, ticksWhenStateChanged, tickCountPerPose
 		return w.imgs[w.state], w.tickesWhenAttackState, wesAttackTicksPerPose, wesAttackFrameCount
 	case unitStateWalk:
 		return w.imgs[w.state], 0, wesWalkTicksPerPose, wesWalkFrameCount
+	case unitStateHurt:
+		return w.imgs[w.state], 0, wesHurtTicksPerPose, wesHurtFrameCount
 	default:
 		return w.imgs[w.state], 0, wesWalkTicksPerPose, wesWalkFrameCount
 	}
@@ -96,27 +99,49 @@ func (w *Wes) Position() (float64, float64) {
 	return w.position.x, w.position.y
 }
 
-func (w *Wes) Handle(et EventType, _ any) {
+func (w *Wes) Handle(et EventType, payload any) {
 	switch et {
 	case attackAnimationEnded:
 		w.state = unitStateWalk
 	case wesTakeDMG:
-		w.takeDamage()
+		w.takeDMG(payload)
 	default:
 		return
 	}
 }
 
-func (w *Wes) takeDamage() {
-	// TODO I need to implement the animation of tacking damage
-	// while the animation of damage is on wes should not take more damage
-	// like 1 or 2 seconds imune to dmg
+func (w *Wes) takeDMG(payload any) {
+	if w.state == unitStateHurt {
+		return
+	}
+
+	ticks, ok := payload.(int)
+	if !ok {
+		return
+	}
+
+	w.tickesWhenHurtState = ticks
+	w.state = unitStateHurt
 	w.life--
-	// if w.life == 0 {
-	// w.state = unitStateDead
-	// TODO implement animation of wes dieing
-	// currently when wes die he just vanish from the screen.
-	// }
+
+	if w.life == 0 {
+		w.logger.Warn("WES should be dead IMPLMENT death animation and restart the stage")
+		// w.state = unitStateDead
+		// TODO implement animation of wes dieing
+		// currently when wes die he just vanish from the screen.
+	}
+}
+
+func (w *Wes) checkState(tick int) {
+	if w.state == unitStateHurt {
+		tickDiff := tick - w.tickesWhenHurtState
+		hasPassedTwoSeconds := tickDiff >= wesHurtDurationTicks
+
+		if hasPassedTwoSeconds {
+			w.state = unitStateWalk
+			w.tickesWhenHurtState = 0
+		}
+	}
 }
 
 // TODO: implement Draw user UI where will receive wes life
@@ -276,33 +301,42 @@ func (w *Wes) DrawAttackHitBox(screen *ebiten.Image) {
 	vector.StrokeLine(screen, bx, by, cx, cy, 1, green, false) // B -> C
 }
 
+func loadImage(path string) (*ebiten.Image, error) {
+	rawImg, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	imgPNG, _, err := image.Decode(bytes.NewReader(rawImg))
+	if err != nil {
+		return nil, err
+	}
+
+	ebiImg := ebiten.NewImageFromImage(imgPNG)
+
+	return ebiImg, nil
+}
+
 func loadWesImg() (map[unitState]*ebiten.Image, error) {
 	imgsByState := make(map[unitState]*ebiten.Image)
 
-	walk, err := os.ReadFile("./assets/wes/Walk.png")
-	if err != nil {
-		return nil, err
-	}
-	walkImg, _, err := image.Decode(bytes.NewReader(walk))
+	walkWesImg, err := loadImage("./assets/wes/Walk.png")
 	if err != nil {
 		return nil, err
 	}
 
-	walkWesImg := ebiten.NewImageFromImage(walkImg)
-
-	attack, err := os.ReadFile("./assets/wes/Attack.png")
-	if err != nil {
-		return nil, err
-	}
-	attackImg, _, err := image.Decode(bytes.NewReader(attack))
+	attackWesImg, err := loadImage("./assets/wes/Attack.png")
 	if err != nil {
 		return nil, err
 	}
 
-	attackWesImg := ebiten.NewImageFromImage(attackImg)
+	hurtWesImg, err := loadImage("./assets/wes/Hurt.png")
+	if err != nil {
+		return nil, err
+	}
 
 	imgsByState[unitStateWalk] = walkWesImg
 	imgsByState[unitStateAttack] = attackWesImg
+	imgsByState[unitStateHurt] = hurtWesImg
 
 	return imgsByState, nil
 }
