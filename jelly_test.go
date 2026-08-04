@@ -171,22 +171,121 @@ func TestSmackFlocking(t *testing.T) {
 }
 
 func TestSmackAttack(t *testing.T) {
-	t.Skip("TODO implement test")
+	// countAttacking reports how many of the school are currently attacking.
+	countAttacking := func(game *Game) int {
+		attacking := 0
+		for _, j := range game.units.smack {
+			if j.State() == unitStateAttack {
+				attacking++
+			}
+		}
+		return attacking
+	}
 
-	t.Run("jellyfish can enter an attack state", func(_ *testing.T) {
+	t.Run("jellyfish can enter an attack state", func(t *testing.T) {
+		game := NewGame(slog.Default())
 
+		require.Zero(t, countAttacking(game), "no jellyfish attacks before the electric stage")
+
+		// The electric stage only records its start on a nonzero tick, so advance
+		// one tick before crossing the "eaten enough" threshold that starts it.
+		require.NoError(t, game.Update())
+		game.counter.Add(startEletricJellyAt + 1)
+		require.NotZero(t, game.tickEletricJellyStart, "eating past the threshold must start the electric stage")
+
+		// The stage fires its first wave one interval after it starts.
+		for range eletricAttackIntervalTicks {
+			require.NoError(t, game.Update())
+		}
+
+		assert.Positive(t, countAttacking(game), "the electric stage must put jellyfish into the attack state")
 	})
 
-	t.Run("touching wes while attacking damages him", func(_ *testing.T) {
+	t.Run("touching wes while attacking damages him", func(t *testing.T) {
+		t.Cleanup(func() { units = make(map[int]Unit, 0) })
 
+		game := NewGame(slog.Default())
+		wesX, wesY := game.units.wes.Position()
+
+		// Only wes and one jellyfish, placed inside the jelly's attack radius.
+		units = make(map[int]Unit, 0)
+		units[game.units.wes.ID()] = game.units.wes
+
+		jelly := newJellyFish(0, slog.Default(), game.evenetManager)
+		const touchOffset = 5.0
+		jelly.position = NewVector(wesX+touchOffset, wesY)
+		jelly.nextPosition = jelly.position
+		units[jelly.ID()] = jelly
+		game.units.smack = []*JellyFish{jelly}
+		rebuildGrid()
+
+		// Damage only flows while tickStartAttack is nonzero, so start the attack
+		// on the tick the next Update will process.
+		jelly.Attack(game.tick + 1)
+
+		require.Equal(t, wesStartingLife, game.units.wes.life, "wes must start at full life")
+		require.Equal(t, unitStateAttack, jelly.State(), "the jelly must be attacking")
+		require.Less(t, jelly.VecPosition().Distance(game.units.wes.VecPosition()), float64(jellyAttackViewRadius),
+			"the jelly must start within touch range of wes")
+
+		require.NoError(t, game.Update())
+
+		assert.Equal(t, wesStartingLife-1, game.units.wes.life, "touching an attacking jellyfish costs wes a life")
+		assert.Equal(t, unitStateHurt, game.units.wes.State(), "taking damage puts wes into the hurt state")
 	})
 
-	t.Run("attack state reverts to normal after a while", func(_ *testing.T) {
+	t.Run("attack state reverts to normal after a while", func(t *testing.T) {
+		t.Cleanup(func() { units = make(map[int]Unit, 0) })
 
+		game := NewGame(slog.Default())
+
+		// A single jelly off on its own, so nothing but the passage of time acts
+		// on its attack state.
+		units = make(map[int]Unit, 0)
+		jelly := newJellyFish(0, slog.Default(), game.evenetManager)
+		jelly.position = NewVector(screenWidth/2, screenHeight/2)
+		jelly.nextPosition = jelly.position
+		units[jelly.ID()] = jelly
+		game.units.smack = []*JellyFish{jelly}
+		rebuildGrid()
+
+		attackStartTick := game.tick + 1
+		jelly.Attack(attackStartTick)
+		require.Equal(t, unitStateAttack, jelly.State(), "the jelly must start in the attack state")
+
+		revertTick := attackStartTick + jellyAttackDurationTicks
+		for game.tick < revertTick {
+			require.NoError(t, game.Update())
+
+			if game.tick < revertTick {
+				require.Equal(t, unitStateAttack, jelly.State(), "the jelly stays attacking until the duration elapses")
+				continue
+			}
+			assert.Equal(t, unitStateWalk, jelly.State(), "the jelly returns to walk once the attack duration passes")
+		}
 	})
 
-	t.Run("no more than a limited number of jellyfish attack at the same time", func(_ *testing.T) {
+	t.Run("no more than a limited number of jellyfish attack at the same time", func(t *testing.T) {
+		game := NewGame(slog.Default())
 
+		require.NoError(t, game.Update())
+		game.counter.Add(startEletricJellyAt + 1)
+		require.NotZero(t, game.tickEletricJellyStart, "the electric stage must have started")
+
+		// Drive through a couple of attack waves.
+		maxSeen := 0
+		for range 2 * eletricAttackIntervalTicks {
+			require.NoError(t, game.Update())
+
+			attacking := countAttacking(game)
+			require.LessOrEqual(t, attacking, maxAttackingJellys,
+				"never more than the cap may attack at the same time")
+			if attacking > maxSeen {
+				maxSeen = attacking
+			}
+		}
+
+		require.Positive(t, maxSeen, "at least one wave must have fired, otherwise the cap is untested")
 	})
 }
 

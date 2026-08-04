@@ -160,6 +160,7 @@ func (g *Game) Handle(et EventType, payload any) {
 //
 // miniMap like:
 // thunder --- turtle shield --- shark bite --- octopus hand --- octopus EYE
+// all this are StageEvents
 //
 //	0 - nothing passive jelly
 //	1 - eletric jelly

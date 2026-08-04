@@ -41,8 +41,8 @@ const (
 	jellyAttackViewRadius = 25
 
 	adjustRateAligment      = 0.15
-	adjustRateCohesion      = 0.09
-	adjustRateSeparation    = 0.30
+	adjustRateCohesion      = 0.03
+	adjustRateSeparation    = 0.20
 	adjustRateSeparationWes = 0.45
 	jellysCount             = 400
 
