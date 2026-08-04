@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"math"
 	"testing"
 
@@ -17,7 +18,13 @@ func TestNextMove(t *testing.T) {
 	t.Run("out of screen above recovers (panic log frame)", func(t *testing.T) {
 		require.Empty(t, units, "no other unit may influence the acceleration")
 
-		j := &JellyFish{position: NewVector(771.77, -2.18), velocity: NewVector(0.5, -1.4), state: unitStateWalk}
+		// Mid-screen x (clear of the side borders) and a y pushed past the top
+		// edge, so only the top bounce acts.
+		j := &JellyFish{
+			position: NewVector(screenWidth/2, -jellyViewRadius),
+			velocity: NewVector(0.5, -1.4),
+			state:    unitStateWalk,
+		}
 
 		j.nextMove()
 
@@ -31,7 +38,8 @@ func TestNextMove(t *testing.T) {
 	t.Run("out of screen on the left recovers", func(t *testing.T) {
 		require.Empty(t, units, "no other unit may influence the acceleration")
 
-		j := &JellyFish{position: NewVector(-1, 300), velocity: NewVector(-1.5, 0), state: unitStateWalk}
+		// x pushed past the left edge, mid-screen y (clear of top/bottom borders).
+		j := &JellyFish{position: NewVector(-jellyViewRadius, screenHeight/2), velocity: NewVector(-1.5, 0), state: unitStateWalk}
 
 		j.nextMove()
 
@@ -45,7 +53,12 @@ func TestNextMove(t *testing.T) {
 	t.Run("out of screen beyond bottom-right corner recovers", func(t *testing.T) {
 		require.Empty(t, units, "no other unit may influence the acceleration")
 
-		j := &JellyFish{position: NewVector(screenWidth+1, screenHeight+1), velocity: NewVector(1, 1), state: unitStateWalk}
+		// Pushed past both the right and bottom edges.
+		j := &JellyFish{
+			position: NewVector(screenWidth+jellyViewRadius, screenHeight+jellyViewRadius),
+			velocity: NewVector(1, 1),
+			state:    unitStateWalk,
+		}
 
 		j.nextMove()
 
@@ -92,7 +105,9 @@ func TestNextMove(t *testing.T) {
 	t.Run("near top-left border moving outward is pushed back in", func(t *testing.T) {
 		require.Empty(t, units, "no other unit may influence the acceleration")
 
-		j := &JellyFish{position: NewVector(0.3, 0.3), velocity: NewVector(-1, -1), state: unitStateWalk}
+		// On-screen but inside the push-cap zone (0 < pos < borderPushCap), so the
+		// bounce clamps the divisor instead of blowing up.
+		j := &JellyFish{position: NewVector(borderPushCap/2, borderPushCap/2), velocity: NewVector(-1, -1), state: unitStateWalk}
 
 		j.nextMove()
 
@@ -106,26 +121,52 @@ func TestNextMove(t *testing.T) {
 }
 
 func TestSmackFlocking(t *testing.T) {
-	t.Skip("TODO implement test")
+	t.Run("jellyfish group up, match direction, and keep distance from close neighbors", func(t *testing.T) {
+		t.Skip("yet I didn't have a regression here and make a good test to assert this behavior it's" +
+			"always resulting into something, hard to maintain and not necessaraly is testing what I really want," +
+			" we need more time thinking on this one")
 
-	t.Run("jellyfish group up, match direction, and keep distance from close neighbors", func(_ *testing.T) {
+		game := NewGame(slog.Default())
 
+		const windows = 4
+		twoSeconds := 2 * testOneSec
+
+		for range windows {
+			for range twoSeconds {
+				err := game.Update()
+				require.NoError(t, err)
+			}
+		}
 	})
 
-	t.Run("jellyfish never stop moving", func(_ *testing.T) {
+	t.Run("jellyfish never stop moving", func(t *testing.T) {
+		game := NewGame(slog.Default())
 
+		for range testOneSec {
+			err := game.Update()
+			require.NoError(t, err)
+
+			for _, j := range game.units.smack {
+				speed := j.VecVelocity().Pythagoras()
+				assert.GreaterOrEqual(t, speed, jellyMinSpeed-floatTolerance,
+					"every jellyfish must keep cruising at or above the minimum speed")
+			}
+		}
 	})
 
-	t.Run("jellyfish never move faster than their cruising speed", func(_ *testing.T) {
+	t.Run("jellyfish never move faster than their cruising speed", func(t *testing.T) {
+		game := NewGame(slog.Default())
 
-	})
-}
+		for range testOneSec {
+			err := game.Update()
+			require.NoError(t, err)
 
-func TestSmackFleeWes(t *testing.T) {
-	t.Skip("TODO implement test")
-
-	t.Run("jellyfish flee from wes when he gets close", func(_ *testing.T) {
-
+			for _, j := range game.units.smack {
+				speed := j.VecVelocity().Pythagoras()
+				assert.LessOrEqual(t, speed, jellyMaxSpeed+floatTolerance,
+					"no jellyfish may move faster than the maximum cruising speed")
+			}
+		}
 	})
 }
 
@@ -152,7 +193,7 @@ func TestSmackAttack(t *testing.T) {
 func TestSmackDeath(t *testing.T) {
 	t.Skip("TODO implement test")
 
-	t.Run("eaten jellyfish play a death animation before disappearing", func(_ *testing.T) {
+	t.Run("eaten jellyfish stop walking and play a death animation before disappearing", func(_ *testing.T) {
 
 	})
 }
