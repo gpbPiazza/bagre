@@ -122,3 +122,22 @@ Mental model: `tick` = an odometer (only ever counts up). Absolute time = read t
 | "**Hold** a state **for** N seconds, then stop" | one-shot duration/deadline | `tickDiff >= N*60` |
 
 Both work off `tickDiff` and mention N, so they feel identical — the trap. `%` asks "is *now* an N-second boundary?" (true repeatedly, **including t=0**). `>=` asks "has N elapsed since the start?" (false, then true once). Using `>=` for a repeating beat fires forever after the first crossing; using `% == 0` for a duration is fatal: `0 % x == 0` is true, so the state ends the instant it begins. And always modulo the **raw** `tickDiff`, never `tickDiff/60` — the divided value is constant for 60 ticks, so it'd match 60 times per boundary instead of once.
+
+## Source vs displayable resolution (logical vs physical)
+
+`screenWidth, screenHeight = 950, 550` is **NOT pixels on the monitor** — it's a *coordinate system* (the source/logical resolution). Ebiten upscales that 950×550 canvas to fill whatever physical space the window/monitor gives it. Same idea as a **1080p video played fullscreen on a 4K display**: the source is 1920×1080 but it fills the 4K screen by upscaling — you don't need 4K source to fill a 4K screen.
+
+- **Logical / source** (950×550): what game logic thinks in — a position `x=475` means "horizontal center," regardless of physical pixels.
+- **Physical / displayable** (monitor px, e.g. 1920×1080): actual pixels. Ebiten scales source → physical automatically.
+
+Every frame: (1) you draw everything into the 950×550 `screen`; (2) Ebiten stretches that image to fill the window. So on a 1920-wide monitor each logical pixel becomes ~2 physical pixels. **The 950 never caps the physical size** — the game fills the whole monitor in fullscreen (`ebiten.SetFullscreen(true)`), no `ebiten.Monitor()` needed.
+
+### The sync rule — positions and image draw must share ONE coordinate space
+
+`Layout`'s return, the background draw, and every entity position/clamp/spawn ALL live in logical 950×550 coords. If any one of them switches to a different space (e.g. making the logical size = monitor size), they disagree → things render or position wrong.
+
+- Background scale is derived, not hardcoded: `GeoM.Scale(screenWidth/imgW, screenHeight/imgH)`. `Scale` is a **multiplier on the image's native size**, so the factor is a *ratio* (target ÷ source), not a target size. Swap the image → the ratio still fits; a hardcoded `Scale(2,2)` breaks.
+- The logical size must stay a **constant**: the collision grid is a fixed-size array `[screenWidth+2][screenHeight+2]` (`unit.go`) and Go array sizes can't take a runtime monitor value. This is why "make logical = monitor size" is a trap.
+- Inset play areas (e.g. confining jelly to the water *below* a `waterTopY` horizon) are still expressed in these logical coords — a sub-rectangle of the canvas, not a new coordinate system. Only the clamps/spawns move; `Layout` and the background still cover the full 950×550.
+
+One sentence: keep 950×550 as the single source coordinate space everything agrees on, let Ebiten upscale it to the monitor, and never let position math and draw math drift into different spaces.

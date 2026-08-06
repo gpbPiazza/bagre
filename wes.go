@@ -65,7 +65,7 @@ func NewWes(
 	}
 
 	w := &Wes{
-		position:              Vector2D{x: screenWidth / 2, y: screenHeight / 2},
+		position:              Vector2D{x: float64(screenWidth) / 2, y: float64(screenHeight) / 2},
 		velocity:              Vector2D{x: 1.0, y: 1.0},
 		id:                    id,
 		tickesWhenAttackState: 0,

@@ -32,6 +32,7 @@ type Game struct {
 	units         Units
 	counter       *Counter
 	evenetManager *EventManager
+	backgroundMap *BackgroundMap
 	DrawHitBox    bool
 
 	logger                *slog.Logger
@@ -44,6 +45,8 @@ func NewGame(l *slog.Logger) *Game {
 	counter := NewCounter(jellysCount, eventManager)
 	gUnits := NewUnits(eventManager, l, counter)
 
+	backgroundMap := NewBackgroundMap(l)
+
 	g := &Game{
 		ScreenWidth:           screenWidth,
 		ScreenHeight:          screenHeight,
@@ -54,6 +57,7 @@ func NewGame(l *slog.Logger) *Game {
 		DrawHitBox:            os.Getenv("DRAW_HIT_BOX") != "",
 		counter:               counter,
 		logger:                l,
+		backgroundMap:         backgroundMap,
 	}
 
 	eventManager.subscribe(removeUnit, g)
@@ -110,7 +114,7 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(s *ebiten.Image) {
-	s.Fill(darkGrey)
+	g.backgroundMap.Draw(s)
 
 	g.counter.Draw(s)
 	g.units.wes.DrawLife(s)

@@ -1,14 +1,45 @@
 package main
 
-import "image/color"
+import (
+	"image/color"
+)
 
 // All game balancing knobs live here, grouped by context. Tweak freely: tests
 // derive expected values from these constants instead of hardcoding them.
 
-// Screen / clock
+// Screen - TODO remove this vars, use variables from game
 const (
 	screenWidth, screenHeight = 950, 550
-	ticksPerSecond            = 60 // one game.Update() call = one tick
+)
+
+// type Screens struct {
+// 	monitorW, monitorH int
+//
+// 	logicalW, logicalH int
+// }
+//
+// var screens = &Screens{}
+//
+// func init() {
+// 	const (
+// 		_, screenHeight = 950, 550
+// 	)
+//
+// 	monitor := ebiten.Monitor()
+// 	mWidht, mHeight := monitor.Size()
+//
+// 	screens = &Screens{
+// 		monitorW: mWidht,
+// 		monitorH: mHeight,
+//
+// 		logicalW: mWidht,
+// 		logicalH: screenHeight,
+// 	}
+// }
+
+// clock
+const (
+	ticksPerSecond = 60 // one game.Update() call = one tick
 )
 
 // Wes
@@ -91,6 +122,6 @@ const (
 
 // Palette
 var (
-	darkGrey    = color.RGBA{R: 40, G: 45, B: 60, A: 255} //nolint:mnd // RGB palette values
-	hitBoxGreen = color.RGBA{R: 0, G: 255, B: 0, A: 255}  //nolint:mnd // RGB palette values
+	// darkGrey    = color.RGBA{R: 40, G: 45, B: 60, A: 255} //nolint:mnd // RGB palette values
+	hitBoxGreen = color.RGBA{R: 0, G: 255, B: 0, A: 255} //nolint:mnd // RGB palette values
 )

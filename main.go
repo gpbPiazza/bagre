@@ -37,8 +37,8 @@ func initGame(l *slog.Logger) int {
 
 	game := NewGame(l)
 
-	ebiten.SetWindowSize(game.ScreenWidth, game.ScreenWidth)
 	ebiten.SetWindowTitle("Wes bagre")
+	ebiten.SetFullscreen(true)
 	if err = ebiten.RunGame(game); err != nil {
 		l.Error("failed to run game", log.Err(err))
 		return 1

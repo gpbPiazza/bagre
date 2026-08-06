@@ -1,22 +1,11 @@
 package main
 
-import "github.com/hajimehoshi/ebiten/v2"
+import (
+	"log/slog"
 
-type BackgroundMap struct {
-}
-
-type Stages struct {
-}
-
-type StageType int
-
-// const (
-// 	eletri
-// )
-
-type StageController interface {
-	Stage() StageType
-}
+	"github.com/gpbPiazza/bagre/pkg/log"
+	"github.com/hajimehoshi/ebiten/v2"
+)
 
 // stages -> one map one final boss
 // inside of each stages we will have a many events/StageEvents
@@ -54,13 +43,82 @@ type StageController interface {
 //	2 - octopus hold
 //	3 - octopus boss
 
-func NewBackgroundMap(_ StageController) *BackgroundMap {
-	return &BackgroundMap{}
+// type Stages struct {
+// }
+//
+// type StageType int
+//
+// // const (
+// // 	eletri
+// // )
+//
+// type StageController interface {
+// 	Stage() StageType
+// /}
+
+type BackgroundMap struct {
+	menuImg, flatGround *ebiten.Image
+	menuImgOpt          *ebiten.DrawImageOptions
+
+	flatGroundOpts []*ebiten.DrawImageOptions
+}
+
+func NewBackgroundMap(l *slog.Logger) *BackgroundMap {
+	menuImg, err := loadImage("./assets/platform/background/Background.png")
+	if err != nil {
+		l.Error("failed to load menuBackground", log.Err(err))
+		panic(err)
+	}
+
+	flatGround, err := loadImage("./assets/platform/tileset/Tile_38.png")
+	if err != nil {
+		l.Error("failed to load flatGround", log.Err(err))
+		panic(err)
+	}
+
+	opt := &ebiten.DrawImageOptions{}
+	dx, dy := menuImg.Bounds().Dx(), menuImg.Bounds().Dy()
+	opt.GeoM.Scale(screenWidth/float64(dx), screenHeight/float64(dy))
+
+	return &BackgroundMap{
+		menuImg:        menuImg,
+		menuImgOpt:     opt,
+		flatGround:     flatGround,
+		flatGroundOpts: newGroundOpts(flatGround),
+	}
 }
 
 func (b *BackgroundMap) Update() {
-
 }
-func (b *BackgroundMap) Draw(_ *ebiten.Image) {
 
+func (b *BackgroundMap) Draw(screen *ebiten.Image) {
+	screen.DrawImage(b.menuImg, b.menuImgOpt)
+
+	for _, opt := range b.flatGroundOpts {
+		screen.DrawImage(b.flatGround, opt)
+	}
+}
+
+func newGroundOpts(ground *ebiten.Image) []*ebiten.DrawImageOptions {
+	dy := ground.Bounds().Dy()
+	dx := ground.Bounds().Dx()
+
+	groundY := float64(screenHeight - dy)
+
+	space := screenWidth
+	var opts []*ebiten.DrawImageOptions
+
+	for space >= 0 {
+		opt := &ebiten.DrawImageOptions{}
+
+		// math.Abs(x float64)
+
+		opt.GeoM.Translate(float64(space-dx), groundY)
+
+		opts = append(opts, opt)
+
+		space -= dx
+	}
+
+	return opts
 }
